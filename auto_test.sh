@@ -33,9 +33,9 @@ run() {
   ACCESS_TOKEN=$(jq -r '.accessToken' $FILE)
   ID_TOKEN=$(jq -r '.idToken' $FILE)
 
-  case $ACTION in
+  case $1 in
   all)
-    run
+    api_factory "$(jq -r '.testCases | keys[]' $FILE)"
     ;;
   *)
     api_factory $@
@@ -45,30 +45,39 @@ run() {
 
 api_factory() {
   for TEST_CASE in $@; do
-    echo_v "${BOLD}Running Case:${RESET} $1"
+    echo "${BOLD}Running Case:${RESET} $TEST_CASE"
     echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
     echo_v
     ROUTE=$(jq -r ".testCases.$TEST_CASE.path" $FILE)
     BODY="$(jq -r ".testCases.$TEST_CASE.body" $FILE)"
     QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.$TEST_CASE | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
-    METHOD="$(jq -r ".testCases.$TEST_CASE.method //\"GET\"" $FILE)"
+    METHOD="$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE)"
     call_api
+    echo ""
+    echo ""
   done
 }
 
 call_api() {
-  # curl -is --request POST $URL$ROUTE$QUERY_PARAMS \
-  #   --header "Authorization: Bearer $ID_TOKEN:$ACCESS_TOKEN" \
-  #   --data "$BODY" -w '\n\n\n\n%{json}'
+  echo "$METHOD $URL$ROUTE$QUERY_PARAMS"
   local raw_output=$(curl -is --request $METHOD $URL$ROUTE$QUERY_PARAMS \
     --header "Authorization: Bearer $ACCESS_TOKEN : $ID_TOKEN" \
-    --data "$BODY" -w '\n{ "ResponseTime": "%{time_total}s" }')
+    --data "$BODY" -w '\n{ "ResponseTime": "%{time_total}s" }' || echo "AUTO_API_ERROR")
+  if [[ $raw_output == *"AUTO_API_ERROR"* ]]; then
+    echo "Problem connecting to $URL"
+    return 1
+  fi
   local header="$(awk -v bl=1 'bl{bl=0; h=($0 ~ /HTTP\//)} /^\r?$/{bl=1} {if(h)print $0 }' <<<"$raw_output")"
   local json=$(jq -c -R -r '. as $line | try fromjson' <<<"$raw_output")
   BODY=$(sed -n 1p <<<"$json")
   META=$(sed 1d <<<"$json")
   parse_header "$header"
-  echo "$HEADER"
+  echo "HEADER:"
+  echo "$HEADER" | jq -C
+  echo "BODY:"
+  echo "$BODY" | jq -C
+  echo "META:"
+  echo "$META" | jq -C
 }
 
 function parse_header() {
