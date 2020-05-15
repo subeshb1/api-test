@@ -51,16 +51,34 @@ api_factory() {
     ROUTE=$(jq -r ".testCases.$TEST_CASE.path" $FILE)
     BODY="$(jq -r ".testCases.$TEST_CASE.body" $FILE)"
     QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.$TEST_CASE | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
+    METHOD="$(jq -r ".testCases.$TEST_CASE.method //\"GET\"" $FILE)"
     call_api
   done
 }
 
 call_api() {
-  curl -is --request POST $URL$ROUTE$QUERY_PARAMS \
-    --header "Authorization: Bearer $ID_TOKEN:$ACCESS_TOKEN" \
-    --data "$BODY" -w '\nTotal Time: %{time_total}s' | jq -C -R -r '. as $line | try fromjson catch $line'
-  echo ""
-  echo ""
+  # curl -is --request POST $URL$ROUTE$QUERY_PARAMS \
+  #   --header "Authorization: Bearer $ID_TOKEN:$ACCESS_TOKEN" \
+  #   --data "$BODY" -w '\n\n\n\n%{json}'
+  local raw_output=$(curl -is --request $METHOD $URL$ROUTE$QUERY_PARAMS \
+    --header "Authorization: Bearer $ACCESS_TOKEN : $ID_TOKEN" \
+    --data "$BODY" -w '\n{ "ResponseTime": "%{time_total}s" }')
+  local header="$(awk -v bl=1 'bl{bl=0; h=($0 ~ /HTTP\//)} /^\r?$/{bl=1} {if(h)print $0 }' <<<"$raw_output")"
+  local json=$(jq -c -R -r '. as $line | try fromjson' <<<"$raw_output")
+  BODY=$(sed -n 1p <<<"$json")
+  META=$(sed 1d <<<"$json")
+  parse_header "$header"
+  echo "$HEADER"
+}
+
+function parse_header() {
+  local RESPONSE=($(echo "$header" | tr '\r' ' ' | sed -n 1p))
+  local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/' | jq)
+  # echo "$HEADER"
+  HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
+           \"http_status\": \"${RESPONSE[1]}\",
+           \"http_message\": \"${RESPONSE[@]:2}\",
+           \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -s add)
 }
 
 # Show usage and exit
