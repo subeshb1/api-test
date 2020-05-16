@@ -11,8 +11,20 @@ A simple bash script to test JSON API from terminal in a structured and organize
 
 ## Installing
 
+```sh
+curl -LJO https://raw.githubusercontent.com/subeshb1/api-test/master/api-test.sh
 ```
-curl https://raw.githubusercontent.com/subeshb1/api-test/master/api-test.sh
+
+```sh
+chmod +x api-test.sh
+```
+
+```
+mv api-test.sh /usr/local/bin/api-test
+```
+
+```
+api-test --help
 ```
 
 ### Alternate Approach
@@ -91,4 +103,10 @@ The test cases are present in the `testCases` object. The main url for the api i
 api-test -f test.json run test_case_1 # running single test case
 api-test -f test.json run test_case_1 test_case_2 # running multiple test case
 api-test -f test.json run all # running all test case. WARNING: Don't name a test case `all`
+```
+
+## Uninstalling
+
+```
+rm /usr/local/bin/api-test
 ```
