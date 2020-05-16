@@ -12,7 +12,7 @@ FILE=""
 
 VERBOSE=0
 
-COMMAND_NAME="auto_test"
+COMMAND_NAME="api-test"
 
 ACCESS_TOKEN=""
 ID_TOKEN=""
@@ -100,10 +100,17 @@ function parse_header() {
 
 # Show usage and exit
 function usage() {
-  echo "usage: $COMMAND_NAME [-hv] [-f file_name] [CMD] [ARGS]"
+  echo "USAGE: $COMMAND_NAME [-hv] [-f file_name] [CMD] [ARGS]"
+  echo ""
+  echo "OPTIONS:"
+  echo "  -h (--help)       print this message"
   echo "  -h (--help)       print this message"
   echo "  -v (--verbose)    verbose logging"
   echo "  -f (--file)       file to test"
+  echo ""
+  echo "COMMANDS:"
+  echo "  run               Run test cases specified in the test file."
+  echo "                    Example: 'api-test -f test.json run test_case_1 test_case_2', 'api-test -f test.json run all'"
   exit
 }
 
