@@ -29,9 +29,7 @@
       }
     }
   },
-  "url": "localhost:3304",
-  "accessToken": "12",
-  "idToken": "12",
+  "url": "localhost:3000",
   "header": {
     "Authorization": "Bearer  <ACCESS_TOKEN>"
   }
