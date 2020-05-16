@@ -32,7 +32,7 @@ run() {
   URL=$(jq -r '.url' $FILE)
   ACCESS_TOKEN=$(jq -r '.accessToken' $FILE)
   ID_TOKEN=$(jq -r '.idToken' $FILE)
-
+  COMMON_HEADER=$(cat $FILE | jq -r -c ". | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
   case $1 in
   all)
     api_factory "$(jq -r '.testCases | keys[]' $FILE)"
@@ -51,6 +51,7 @@ api_factory() {
     ROUTE=$(jq -r ".testCases.$TEST_CASE.path" $FILE)
     BODY="$(jq -r ".testCases.$TEST_CASE.body" $FILE)"
     QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.$TEST_CASE | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
+    REQUEST_HEADER=$(cat $FILE | jq -r ".testCases.$TEST_CASE | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
     METHOD="$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE)"
     call_api
     echo ""
@@ -59,10 +60,17 @@ api_factory() {
 }
 
 call_api() {
-  echo "$METHOD $URL$ROUTE$QUERY_PARAMS"
-  local raw_output=$(curl -is --request $METHOD $URL$ROUTE$QUERY_PARAMS \
-    --header "Authorization: Bearer $ACCESS_TOKEN : $ID_TOKEN" \
-    --data "$BODY" -w '\n{ "ResponseTime": "%{time_total}s" }' || echo "AUTO_API_ERROR")
+  # curl -ivs --request $METHOD "$URL$ROUTE$QUERY_PARAMS" \
+  #   --data "$BODY" \
+  #   "$COMMON_HEADER" \
+  #   "$REQUEST_HEADER" \
+  #   -w '\n{ "ResponseTime": "%{time_total}s" }\n'
+  local raw_output=$(curl -is --request $METHOD "$URL$ROUTE$QUERY_PARAMS" \
+    --data "$BODY" \
+    "$COMMON_HEADER" \
+    "$REQUEST_HEADER" \
+    -w '\n{ "ResponseTime": "%{time_total}s" }' || echo "AUTO_API_ERROR")
+
   if [[ $raw_output == *"AUTO_API_ERROR"* ]]; then
     echo "Problem connecting to $URL"
     return 1
