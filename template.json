@@ -1,0 +1,38 @@
+{
+  "name": "My API test",
+  "testCases": {
+    "test_case_1": {
+      "path": "/path_1",
+      "method": "POST",
+      "description": "Best POST api",
+      "body": {
+        "value": 1
+      },
+      "header": {
+        "X-per": "1"
+      }
+    },
+    "test_case_2": {
+      "path": "/path_2",
+      "method": "GET",
+      "description": "Best GET api",
+      "query": {
+        "value": 1
+      }
+    },
+    "test_case_3": {
+      "path": "/path_1",
+      "method": "DELETE",
+      "description": "Best DELETE api",
+      "body": {
+        "value": 1
+      }
+    }
+  },
+  "url": "localhost:3304",
+  "accessToken": "12",
+  "idToken": "12",
+  "header": {
+    "Authorization": "Bearer  <ACCESS_TOKEN>"
+  }
+}
