@@ -21,6 +21,7 @@ URL=""
 SHOW_HEADER=0
 HEADER_ONLY=0
 SILENT=0
+API_ERROR=0
 
 echo_v() {
   if [ $VERBOSE -eq 1 ]; then
@@ -71,15 +72,23 @@ run() {
 
 api_factory() {
   for TEST_CASE in $@; do
+    API_ERROR=0
     echo "${BOLD}Running Case:${RESET} $TEST_CASE"
     echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
     echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
     call_api $TEST_CASE
     display_results
+    echo ""
+    echo ""
   done
 }
 
 display_results() {
+
+  if [[ $API_ERROR == 1 ]]; then
+    return
+  fi
+
   local res=$(jq -r '.http_status + " " + .http_message ' <<<"$RESPONSE_HEADER")
   local status=$(jq -r '.http_status' <<<"$RESPONSE_HEADER")
   echo "Response:"
@@ -100,8 +109,6 @@ display_results() {
   fi
   echo "META:"
   echo "$META" | jq -C
-  echo ""
-  echo ""
 }
 
 color_response() {
@@ -131,6 +138,7 @@ call_api() {
 
   if [[ $raw_output == *"AUTO_API_ERROR"* ]]; then
     echo "Problem connecting to $URL"
+    API_ERROR=1
     return 1
   fi
   local header="$(awk -v bl=1 'bl{bl=0; h=($0 ~ /HTTP\//)} /^\r?$/{bl=1} {if(h)print $0 }' <<<"$raw_output")"
