@@ -57,6 +57,10 @@ run() {
       SILENT=1
       shift
       ;;
+    -h | --help)
+      usage run
+      exit
+      ;;
     esac
   done
 
@@ -160,18 +164,38 @@ function parse_header() {
 
 # Show usage
 function usage() {
-  echo "USAGE: $COMMAND_NAME [-hv] [-f file_name] [CMD] [ARGS]"
-  echo ""
-  echo "OPTIONS:"
-  echo "  -h (--help)       print this message"
-  echo "  -h (--help)       print this message"
-  echo "  -v (--verbose)    verbose logging"
-  echo "  -f (--file)       file to test"
-  echo ""
-  echo "COMMANDS:"
-  echo "  run               Run test cases specified in the test file."
-  echo "                    Example: 'api-test -f test.json run test_case_1 test_case_2', 'api-test -f test.json run all'"
-  exit
+  case $1 in
+  run)
+    echo "USAGE: $COMMAND_NAME [-v] -f file_name run [-hiIs] [ARGS]"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h (--help)           print this message"
+    echo "  -i (--include)        include header"
+    echo "  -I (--header-only)    header only"
+    echo "  -s (--silent)         silent mode"
+    echo ""
+    echo "ARGS:"
+    echo "  all                   Run all test case."
+    echo "  <test_case_name>      Run provided test case."
+    echo ""
+    echo "EXAMPLE:"
+    echo "'api-test -f test.json run test_case_1 test_case_2', 'api-test -f test.json run all'"
+    exit
+    ;;
+  *)
+    echo "USAGE: $COMMAND_NAME [-hv] -f file_name [CMD] [ARGS]"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h (--help)       print this message"
+    echo "  -v (--verbose)    verbose logging"
+    echo "  -f (--file)       file to test"
+    echo ""
+    echo "COMMANDS:"
+    echo "  run               Run test cases specified in the test file."
+    echo "                    Example: 'api-test -f test.json run test_case_1 test_case_2', 'api-test -f test.json run all'"
+    exit
+    ;;
+  esac
 }
 
 for arg in "$@"; do
