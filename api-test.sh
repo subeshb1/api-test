@@ -28,6 +28,19 @@ echo_v() {
   fi
 }
 
+bytes_to_human() {
+  b=${1:-0}
+  d=''
+  s=0
+  S=(Bytes {K,M,G,T,E,P,Y,Z}B)
+  while ((b > 1024)); do
+    d="$(printf ".%02d" $((b % 1024 * 100 / 1024)))"
+    b=$((b / 1024))
+    let s++
+  done
+  echo "$b$d ${S[$s]}"
+}
+
 run() {
   for arg in "$@"; do
     case $arg in
@@ -60,12 +73,8 @@ api_factory() {
   for TEST_CASE in $@; do
     echo "${BOLD}Running Case:${RESET} $TEST_CASE"
     echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
-    ROUTE=$(jq -r ".testCases.$TEST_CASE.path" $FILE)
-    BODY="$(jq -r ".testCases.$TEST_CASE.body" $FILE)"
-    QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.$TEST_CASE | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
-    REQUEST_HEADER=$(cat $FILE | jq -r ".testCases.$TEST_CASE | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
-    METHOD="$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE)"
-    call_api
+    echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
+    call_api $TEST_CASE
     display_results
   done
 }
@@ -73,6 +82,7 @@ api_factory() {
 display_results() {
   local res=$(jq -r '.http_status + " " + .http_message ' <<<"$HEADER")
   local status=$(jq -r '.http_status' <<<"$HEADER")
+  echo "Response:"
   echo "${BOLD}$(color_response $status)$res${RESET}"
   if [[ $HEADER_ONLY == 1 ]]; then
     echo "HEADER:"
@@ -88,7 +98,6 @@ display_results() {
     fi
 
   fi
-
   echo "META:"
   echo "$META" | jq -C
   echo ""
@@ -104,6 +113,11 @@ color_response() {
 }
 
 call_api() {
+  ROUTE=$(jq -r ".testCases.$1.path" $FILE)
+  BODY="$(jq -r ".testCases.$1.body" $FILE)"
+  QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.$1 | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
+  REQUEST_HEADER=$(cat $FILE | jq -r ".testCases.$1 | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
+  METHOD="$(jq -r ".testCases.$1.method //\"GET\" | ascii_upcase" $FILE)"
   # curl -ivs --request $METHOD "$URL$ROUTE$QUERY_PARAMS" \
   #   --data "$BODY" \
   #   "$COMMON_HEADER" \
@@ -113,7 +127,7 @@ call_api() {
     --data "$BODY" \
     "$COMMON_HEADER" \
     "$REQUEST_HEADER" \
-    -w '\n{ "ResponseTime": "%{time_total}s" }' || echo "AUTO_API_ERROR")
+    -w '\n{ "ResponseTime": "%{time_total}s", "Size": %{size_download} }' || echo "AUTO_API_ERROR")
 
   if [[ $raw_output == *"AUTO_API_ERROR"* ]]; then
     echo "Problem connecting to $URL"
@@ -123,20 +137,20 @@ call_api() {
   local json=$(jq -c -R -r '. as $line | try fromjson' <<<"$raw_output")
   BODY=$(sed -n 1p <<<"$json")
   META=$(sed 1d <<<"$json")
+  META=$(jq -r ".Size = \"$(bytes_to_human $(jq -r '.Size' <<<"$META"))\"" <<<"$META")
   parse_header "$header"
 }
 
 function parse_header() {
   local RESPONSE=($(echo "$header" | tr '\r' ' ' | sed -n 1p))
   local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/' | jq)
-  # echo "$HEADER"
   HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
            \"http_status\": \"${RESPONSE[1]}\",
            \"http_message\": \"${RESPONSE[@]:2}\",
            \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -s add)
 }
 
-# Show usage and exit
+# Show usage
 function usage() {
   echo "USAGE: $COMMAND_NAME [-hv] [-f file_name] [CMD] [ARGS]"
   echo ""
