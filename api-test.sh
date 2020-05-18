@@ -80,21 +80,21 @@ api_factory() {
 }
 
 display_results() {
-  local res=$(jq -r '.http_status + " " + .http_message ' <<<"$HEADER")
-  local status=$(jq -r '.http_status' <<<"$HEADER")
+  local res=$(jq -r '.http_status + " " + .http_message ' <<<"$RESPONSE_HEADER")
+  local status=$(jq -r '.http_status' <<<"$RESPONSE_HEADER")
   echo "Response:"
   echo "${BOLD}$(color_response $status)$res${RESET}"
   if [[ $HEADER_ONLY == 1 ]]; then
     echo "HEADER:"
-    echo "$HEADER" | jq -C
+    echo "$RESPONSE_HEADER" | jq -C
   else
     if [[ $SHOW_HEADER == 1 ]]; then
       echo "HEADER:"
-      echo "$HEADER" | jq -C
+      echo "$RESPONSE_HEADER" | jq -C
     fi
     if [[ $SILENT == 0 ]]; then
       echo "BODY:"
-      echo "$BODY" | jq -C
+      echo "$RESPONSE_BODY" | jq -C
     fi
 
   fi
@@ -135,7 +135,7 @@ call_api() {
   fi
   local header="$(awk -v bl=1 'bl{bl=0; h=($0 ~ /HTTP\//)} /^\r?$/{bl=1} {if(h)print $0 }' <<<"$raw_output")"
   local json=$(jq -c -R -r '. as $line | try fromjson' <<<"$raw_output")
-  BODY=$(sed -n 1p <<<"$json")
+  RESPONSE_BODY=$(sed -n 1p <<<"$json")
   META=$(sed 1d <<<"$json")
   META=$(jq -r ".Size = \"$(bytes_to_human $(jq -r '.Size' <<<"$META"))\"" <<<"$META")
   parse_header "$header"
@@ -144,7 +144,7 @@ call_api() {
 function parse_header() {
   local RESPONSE=($(echo "$header" | tr '\r' ' ' | sed -n 1p))
   local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/' | jq)
-  HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
+  RESPONSE_HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
            \"http_status\": \"${RESPONSE[1]}\",
            \"http_message\": \"${RESPONSE[@]:2}\",
            \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -s add)
