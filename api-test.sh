@@ -155,7 +155,7 @@ call_api() {
 
 function parse_header() {
   local RESPONSE=($(echo "$header" | tr '\r' ' ' | sed -n 1p))
-  local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/' | jq)
+  local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/')
   RESPONSE_HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
            \"http_status\": \"${RESPONSE[1]}\",
            \"http_message\": \"${RESPONSE[@]:2}\",
