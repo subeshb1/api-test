@@ -99,20 +99,19 @@ display_results() {
   echo "${BOLD}$(color_response $status)$res${RESET}"
   if [[ $HEADER_ONLY == 1 ]]; then
     echo "HEADER:"
-    echo "$RESPONSE_HEADER" | jq -C
+    echo "$RESPONSE_HEADER" | jq -C '.'
   else
     if [[ $SHOW_HEADER == 1 ]]; then
       echo "HEADER:"
-      echo "$RESPONSE_HEADER" | jq -C
+      echo "$RESPONSE_HEADER" | jq -C '.'
     fi
     if [[ $SILENT == 0 ]]; then
       echo "BODY:"
-      echo "$RESPONSE_BODY" | jq -C
+      echo "$RESPONSE_BODY" | jq -C '.'
     fi
-
   fi
   echo "META:"
-  echo "$META" | jq -C
+  echo "$META" | jq -C '.'
 }
 
 color_response() {
