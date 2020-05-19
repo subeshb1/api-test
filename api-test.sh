@@ -169,6 +169,18 @@ api_factory() {
   done
 }
 
+test_factory() {
+  for TEST_CASE in $@; do
+    echo "${BOLD}Testing Case:${RESET} $TEST_CASE"
+    echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
+    echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
+    call_api $TEST_CASE
+
+    echo ""
+    echo ""
+  done
+}
+
 run() {
   for arg in "$@"; do
     case $arg in
@@ -197,6 +209,38 @@ run() {
     ;;
   *)
     api_factory $@
+    ;;
+  esac
+}
+
+test() {
+  for arg in "$@"; do
+    case $arg in
+    -i | --include)
+      SHOW_HEADER=1
+      shift
+      ;;
+    -I | --header-only)
+      HEADER_ONLY=1
+      shift
+      ;;
+    -s | --silent)
+      SILENT=1
+      shift
+      ;;
+    -h | --help)
+      usage run
+      exit
+      ;;
+    esac
+  done
+
+  case $1 in
+  all)
+    test_factory "$(jq -r '.testCases | keys[]' $FILE)"
+    ;;
+  *)
+    test_factory $@
     ;;
   esac
 }
@@ -245,7 +289,7 @@ case $ACTION in
 run)
   run $@
   ;;
-test) ;;
+test) test $@ ;;
 *)
   usage
   ;;
