@@ -99,20 +99,19 @@ display_results() {
   echo "${BOLD}$(color_response $status)$res${RESET}"
   if [[ $HEADER_ONLY == 1 ]]; then
     echo "HEADER:"
-    echo "$RESPONSE_HEADER" | jq -C
+    echo "$RESPONSE_HEADER" | jq -C '.'
   else
     if [[ $SHOW_HEADER == 1 ]]; then
       echo "HEADER:"
-      echo "$RESPONSE_HEADER" | jq -C
+      echo "$RESPONSE_HEADER" | jq -C '.'
     fi
     if [[ $SILENT == 0 ]]; then
       echo "BODY:"
-      echo "$RESPONSE_BODY" | jq -C
+      echo "$RESPONSE_BODY" | jq -C '.'
     fi
-
   fi
   echo "META:"
-  echo "$META" | jq -C
+  echo "$META" | jq -C '.'
 }
 
 color_response() {
@@ -155,7 +154,7 @@ call_api() {
 
 function parse_header() {
   local RESPONSE=($(echo "$header" | tr '\r' ' ' | sed -n 1p))
-  local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/' | jq)
+  local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/')
   RESPONSE_HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
            \"http_status\": \"${RESPONSE[1]}\",
            \"http_message\": \"${RESPONSE[@]:2}\",
