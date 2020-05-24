@@ -4,6 +4,7 @@ set -o pipefail
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 BOLD=$(tput bold)
+UNDERLINE=$(tput smul)
 RESET=$(tput sgr 0)
 
 ACTION=""
@@ -28,6 +29,10 @@ echo_v() {
   if [ $VERBOSE -eq 1 ]; then
     echo $1
   fi
+}
+
+echo_t() {
+  printf "\t%s\n" "$1"
 }
 
 bytes_to_human() {
@@ -172,18 +177,21 @@ api_factory() {
 test_factory() {
   for TEST_CASE in $@; do
     API_ERROR=0
-    echo "${BOLD}Testing Case:${RESET} $TEST_CASE"
+    echo "${BOLD}Testing Case: \"$TEST_CASE\"${RESET}"
     echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
     echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
     call_api $TEST_CASE
     if [[ $API_ERROR == 1 ]]; then
       return
     fi
-    echo "Testing Header: "
-    test_runner $TEST_CASE "header"
-
-    echo "Testing BODY: "
-    test_runner $TEST_CASE "body"
+    tput cuf 2
+    echo "${BOLD}${UNDERLINE}a. Checking condition for header${RESET}"
+    test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
+    echo ""
+    echo ""
+    tput cuf 2
+    echo "${BOLD}${UNDERLINE}b. Checking condition for body${RESET}"
+    test_runner $TEST_CASE "body" "$RESPONSE_BODY"
 
     echo ""
     echo ""
@@ -192,65 +200,80 @@ test_factory() {
 
 test_runner() {
   for test in ""contains eq hasKey[]""; do
-    local TEST_SCENARIO=$(jq -r ".testCases.$1.test.$2.$test? | select(. !=null)" $FILE)
+    local TEST_SCENARIO=$(jq -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
     fi
+    tput cuf 4
     if [[ $test == "contains" ]]; then
-      echo "CHECKING CONTAINS: "
-      contains "$TEST_SCENARIO" "$RESPONSE_BODY"
+      echo "${BOLD}Checking contains comparision${RESET}"
+      contains "$TEST_SCENARIO" "$3"
     elif [[ $test == "eq" ]]; then
-      echo "CHECKING eq: "
-      check_eq "$TEST_SCENARIO" "$RESPONSE_BODY"
+      echo "${BOLD}Checking equality comparision${RESET}"
+      check_eq "$TEST_SCENARIO" "$3"
     else
-      echo "CHECKING has_key: "
-      has_key "$TEST_SCENARIO" "$RESPONSE_BODY"
+      echo "${BOLD}Checking has key comparision${RESET}"
+      has_key "$TEST_SCENARIO" "$3"
     fi
-    echo ""
   done
 }
 
 contains() {
-  jq --argjson a "$1" --argjson b "$2" -n '$a | select(. != null) | $b | contains($a)'
-  # local common=$(jq --argjson a "$1" --argjson b "$2" -n '$a | select( length != 0) | keys as $check_key | $b | keys - $check_key | map([.]) | . as $arr | $b | delpaths($arr) | if . != {} then . else null end')
-
-  # if [ -z "$common" ]; then
-  #   echo "\$common is NULL"
-  #   return 1
-  # fi
-  # check_eq "$1" "$common"
+  tput cuf 6
+  local check=$(jq --argjson a "$1" --argjson b "$2" -n '$a | select(. != null) | $b | contains($a)')
+  if [[ $check == "true" ]]; then
+    echo "${BOLD}${GREEN}Check Passed${RESET}"
+  else
+    echo "${BOLD}${RED}Check Failed${RESET}"
+    echo "EXPECTED:"
+    echo "${RED}$1${RESET}"
+    echo "GOT:"
+    echo "${GREEN}$2${RESET}"
+  fi
 }
 
 has_key() {
-  # jq -argjson a "$1" --argjson b "$2" -n '$b | keys as $check_key | $header | keys  | contains($check_key)'
-  local paths=$(jq -r 'def path2text($value):
-  def tos: if type == "number" then . else "\"\(tojson)\"" end;
-  reduce .[] as $segment ("";  .
-    + ($segment
-       | if type == "string" then "." + . else "[\(.)]" end));
-
-
-paths(scalars) as $p
-  | getpath($p) as $v
-  | $p | path2text($v)' <<<"$2")
+  # local paths=$(jq -r 'def path2text($value):
+  #   def tos: if type == "number" then . else "\"\(tojson)\"" end;
+  #   reduce .[] as $segment ("";  .
+  #     + ($segment
+  #       | if type == "string" then "." + . else "[\(.)]" end));
+  #   paths(scalars) as $p
+  #     | getpath($p) as $v
+  #     | $p | path2text($v)' <<<"$2")
+  local paths=$(jq -r 'path(..)|[.[]|tostring]|join(".")' <<<"$2")
+  tput cuf 6
   for path in $1; do
+    local FOUND=0
     for data_path in $paths; do
-      local FOUND=0
       if [[ "$path" == "$data_path" ]]; then
-        echo "FOUND: $path"
         FOUND=1
         break
       fi
     done
-
     if [[ $FOUND == 0 ]]; then
-      echo "NOT FOUND: $path"
+      echo "${BOLD}${RED}Check Failed${RESET}"
+      echo "CANNOT FIND KEY:"
+      echo "${RED}$path${RESET}"
+      return
     fi
   done
+  echo "${BOLD}${GREEN}Check Passed${RESET}"
 }
 
 check_eq() {
-  jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b'
+  tput cuf 6
+  local check=$(jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
+  if [[ $check == "true" ]]; then
+    echo "${BOLD}${GREEN}Check Passed${RESET}"
+  else
+    tput cuf 2
+    echo "${BOLD}${RED}Check Failed${RESET}"
+    echo "EXPECTED:"
+    echo "${RED}$1${RESET}"
+    echo "GOT:"
+    echo "${GREEN}$2${RESET}"
+  fi
 }
 
 run() {
