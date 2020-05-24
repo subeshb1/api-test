@@ -179,36 +179,39 @@ test_factory() {
     if [[ $API_ERROR == 1 ]]; then
       return
     fi
-    # echo "$RESPONSE_HEADER"
-    # Has Key
-    # jq --argjson header "$RESPONSE_HEADER" ".testCases.$TEST_CASE.test.header.contains | keys as \$check_key | \$header | keys - \$check_key | map([.]) |. as \$arr | \$header | delpaths(\$arr)" $FILE
+    echo "Testing Header: "
+    test_runner $TEST_CASE "header"
 
-    HEADER_CONTAINS=$(jq -r ".testCases.$TEST_CASE.test.header.hasKey" $FILE)
-    EADER_HAS_KEY=$(jq  ".testCases.$TEST_CASE.test.header.hasKey | .[]" $FILE)
-    echo $EADER_HAS_KEY
-    # contains "$HEADER_CONTAINS" "$RESPONSE_HEADER"
-    has_key "$EADER_HAS_KEY" "$RESPONSE_HEADER"
-    # jq --arg header "$RESPONSE_HEADER" ".testCases.$TEST_CASE.test.header.contains as \$check | \
-    #  \$header | fromjson as \$header |
-    #  \$check | keys as \$check_key |
-    #  \$header | keys  |
-    #  if contains(\$check_key) then
-    #   \$check
-    #  else false
-    #  end " $FILE
+    echo "Testing BODY: "
+    test_runner $TEST_CASE "body"
 
-    # BODY_EQ=$(jq -r ".testCases.$TEST_CASE.test.body.eq" $FILE)
-    # check_eq "$BODY_EQ" "$RESPONSE_BODY"
-
-    # BODY_EQ=$(jq -r ".testCases.$TEST_CASE.test.body.eq" $FILE)
-    # check_eq "$BODY_EQ" "$RESPONSE_BODY"
     echo ""
     echo ""
   done
 }
 
+test_runner() {
+  for test in ""contains eq hasKey[]""; do
+    local TEST_SCENARIO=$(jq -r ".testCases.$1.test.$2.$test? | select(. !=null)" $FILE)
+    if [[ -z $TEST_SCENARIO ]]; then
+      continue
+    fi
+    if [[ $test == "contains" ]]; then
+      echo "CHECKING CONTAINS: "
+      contains "$TEST_SCENARIO" "$RESPONSE_BODY"
+    elif [[ $test == "eq" ]]; then
+      echo "CHECKING eq: "
+      check_eq "$TEST_SCENARIO" "$RESPONSE_BODY"
+    else
+      echo "CHECKING has_key: "
+      has_key "$TEST_SCENARIO" "$RESPONSE_BODY"
+    fi
+    echo ""
+  done
+}
+
 contains() {
-  jq --argjson a "$1" --argjson b "$2" -n '$b | contains($a)'
+  jq --argjson a "$1" --argjson b "$2" -n '$a | select(. != null) | $b | contains($a)'
   # local common=$(jq --argjson a "$1" --argjson b "$2" -n '$a | select( length != 0) | keys as $check_key | $b | keys - $check_key | map([.]) | . as $arr | $b | delpaths($arr) | if . != {} then . else null end')
 
   # if [ -z "$common" ]; then
@@ -220,7 +223,7 @@ contains() {
 
 has_key() {
   # jq -argjson a "$1" --argjson b "$2" -n '$b | keys as $check_key | $header | keys  | contains($check_key)'
-  local paths=$(jq 'def path2text($value):
+  local paths=$(jq -r 'def path2text($value):
   def tos: if type == "number" then . else "\"\(tojson)\"" end;
   reduce .[] as $segment ("";  .
     + ($segment
@@ -233,7 +236,7 @@ paths(scalars) as $p
   for path in $1; do
     for data_path in $paths; do
       local FOUND=0
-      if [[ $path == $data_path ]]; then
+      if [[ "$path" == "$data_path" ]]; then
         echo "FOUND: $path"
         FOUND=1
         break
@@ -241,12 +244,13 @@ paths(scalars) as $p
     done
 
     if [[ $FOUND == 0 ]]; then
-     echo "NOT FOUND: $path"
+      echo "NOT FOUND: $path"
     fi
   done
 }
+
 check_eq() {
-  jq --argjson a "$1" --argjson b "$2" -n "def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); (\$a | (post_recurse | arrays) |= sort) as \$a | (\$b | (post_recurse | arrays) |= sort) as \$b | \$a == \$b"
+  jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b'
 }
 
 run() {
