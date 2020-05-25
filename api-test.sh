@@ -180,10 +180,6 @@ test_factory() {
     echo "${BOLD}Testing Case:${RESET} $TEST_CASE"
     echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
     echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
-    call_api $TEST_CASE
-    if [[ $API_ERROR == 1 ]]; then
-      continue
-    fi
     if [[ -z $(jq -r ".testCases.$TEST_CASE.expect? | select(. !=null)" $FILE) ]]; then
       tput cuf 2
       echo "No test cases found"
@@ -191,6 +187,11 @@ test_factory() {
       echo ""
       continue
     fi
+    call_api $TEST_CASE
+    if [[ $API_ERROR == 1 ]]; then
+      continue
+    fi
+
     tput cuf 2
     echo "${UNDERLINE}a. Checking condition for header${RESET}"
     test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
