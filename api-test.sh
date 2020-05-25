@@ -233,9 +233,9 @@ contains() {
   else
     echo "${RED}${BOLD}Check Failed${RESET}"
     echo "EXPECTED:"
-    echo "${RED}$1${RESET}"
+    echo "${GREEN}$1${RESET}"
     echo "GOT:"
-    echo "${GREEN}${BOLD}$2${RESET}"
+    echo "${RED}$2${RESET}"
   fi
 }
 
@@ -277,9 +277,9 @@ check_eq() {
     tput cuf 2
     echo "${RED}${BOLD}Check Failed${RESET}"
     echo "EXPECTED:"
-    echo "${RED}$1${RESET}"
+    echo "${GREEN}$1${RESET}"
     echo "GOT:"
-    echo "${GREEN}${BOLD}$2${RESET}"
+    echo "${RED}$2${RESET}"
   fi
 }
 
