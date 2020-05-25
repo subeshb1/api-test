@@ -177,20 +177,27 @@ api_factory() {
 test_factory() {
   for TEST_CASE in $@; do
     API_ERROR=0
-    echo "${BOLD}Testing Case: \"$TEST_CASE\"${RESET}"
+    echo "${BOLD}Testing Case:${RESET} $TEST_CASE"
     echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
     echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
     call_api $TEST_CASE
     if [[ $API_ERROR == 1 ]]; then
-      return
+      continue
+    fi
+    if [[ -z $(jq -r ".testCases.$TEST_CASE.expect? | select(. !=null)" $FILE) ]]; then
+      tput cuf 2
+      echo "No test cases found"
+      echo ""
+      echo ""
+      continue
     fi
     tput cuf 2
-    echo "${BOLD}${UNDERLINE}a. Checking condition for header${RESET}"
+    echo "${UNDERLINE}a. Checking condition for header${RESET}"
     test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
     echo ""
     echo ""
     tput cuf 2
-    echo "${BOLD}${UNDERLINE}b. Checking condition for body${RESET}"
+    echo "${UNDERLINE}b. Checking condition for body${RESET}"
     test_runner $TEST_CASE "body" "$RESPONSE_BODY"
 
     echo ""
@@ -206,13 +213,13 @@ test_runner() {
     fi
     tput cuf 4
     if [[ $test == "contains" ]]; then
-      echo "${BOLD}Checking contains comparision${RESET}"
+      echo "Checking contains comparision${RESET}"
       contains "$TEST_SCENARIO" "$3"
     elif [[ $test == "eq" ]]; then
-      echo "${BOLD}Checking equality comparision${RESET}"
+      echo "Checking equality comparision${RESET}"
       check_eq "$TEST_SCENARIO" "$3"
     else
-      echo "${BOLD}Checking has key comparision${RESET}"
+      echo "Checking has key comparision${RESET}"
       has_key "$TEST_SCENARIO" "$3"
     fi
   done
@@ -222,13 +229,13 @@ contains() {
   tput cuf 6
   local check=$(jq --argjson a "$1" --argjson b "$2" -n '$a | select(. != null) | $b | contains($a)')
   if [[ $check == "true" ]]; then
-    echo "${BOLD}${GREEN}Check Passed${RESET}"
+    echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
-    echo "${BOLD}${RED}Check Failed${RESET}"
+    echo "${RED}${BOLD}Check Failed${RESET}"
     echo "EXPECTED:"
     echo "${RED}$1${RESET}"
     echo "GOT:"
-    echo "${GREEN}$2${RESET}"
+    echo "${GREEN}${BOLD}$2${RESET}"
   fi
 }
 
@@ -252,27 +259,27 @@ has_key() {
       fi
     done
     if [[ $FOUND == 0 ]]; then
-      echo "${BOLD}${RED}Check Failed${RESET}"
+      echo "${RED}${BOLD}Check Failed${RESET}"
       echo "CANNOT FIND KEY:"
       echo "${RED}$path${RESET}"
       return
     fi
   done
-  echo "${BOLD}${GREEN}Check Passed${RESET}"
+  echo "${GREEN}${BOLD}Check Passed${RESET}"
 }
 
 check_eq() {
   tput cuf 6
   local check=$(jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
   if [[ $check == "true" ]]; then
-    echo "${BOLD}${GREEN}Check Passed${RESET}"
+    echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
     tput cuf 2
-    echo "${BOLD}${RED}Check Failed${RESET}"
+    echo "${RED}${BOLD}Check Failed${RESET}"
     echo "EXPECTED:"
     echo "${RED}$1${RESET}"
     echo "GOT:"
-    echo "${GREEN}$2${RESET}"
+    echo "${GREEN}${BOLD}$2${RESET}"
   fi
 }
 
