@@ -206,7 +206,7 @@ test_factory() {
 }
 
 test_runner() {
-  for test in ""contains eq path_eq hasKey[]""; do
+  for test in ""contains eq path_eq path_contains hasKey[]""; do
     local TEST_SCENARIO=$(jq -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
@@ -220,7 +220,10 @@ test_runner() {
       check_eq "$TEST_SCENARIO" "$3"
     elif [[ $test == "path_eq" ]]; then
       echo "Checking path equality comparision${RESET}"
-      path_eq "$TEST_SCENARIO" "$3"
+      path_checker "$TEST_SCENARIO" "$3"
+    elif [[ $test == "path_contains" ]]; then
+      echo "Checking path equality comparision${RESET}"
+      path_checker "$TEST_SCENARIO" "$3" 1
     else
       echo "Checking has key comparision${RESET}"
       has_key "$TEST_SCENARIO" "$3"
@@ -292,15 +295,15 @@ check_eq() {
   fi
 }
 
-path_eq() {
+path_checker() {
   local keys=$(jq -r --argjson a "$1" -n '$a | keys[]')
   if [[ -z "$keys" ]]; then
     return
   fi
-  for key in "$keys"; do
+  for key in $keys; do
     tput cuf 6
     local value=$(jq -c -r --argjson a "$1" -n "\$a | .\"$key\"")
-    echo "When path is '$key' and value is $value"
+    echo "When path is '$key'"
     local compare_value=$(jq -r --argjson a "$2" -n "\$a | try .$key catch \"OBJECT_FETCH_ERROR_JQ_API_TEST\"" 2>/dev/null)
     if [[ -z "$compare_value" ]]; then
       tput cuf 8
@@ -310,7 +313,11 @@ path_eq() {
       return
     fi
     tput cuf 2
-    check_eq "$value" "$compare_value"
+    if [[ $3 == 0 ]]; then
+      check_eq "$value" "$compare_value"
+    else
+      contains "$value" "$compare_value"
+    fi
   done
 }
 
