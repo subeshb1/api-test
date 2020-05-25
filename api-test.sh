@@ -200,14 +200,13 @@ test_factory() {
     tput cuf 2
     echo "${UNDERLINE}b. Checking condition for body${RESET}"
     test_runner $TEST_CASE "body" "$RESPONSE_BODY"
-
     echo ""
     echo ""
   done
 }
 
 test_runner() {
-  for test in ""contains eq hasKey[]""; do
+  for test in ""contains eq path_eq hasKey[]""; do
     local TEST_SCENARIO=$(jq -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
@@ -219,6 +218,9 @@ test_runner() {
     elif [[ $test == "eq" ]]; then
       echo "Checking equality comparision${RESET}"
       check_eq "$TEST_SCENARIO" "$3"
+    elif [[ $test == "path_eq" ]]; then
+      echo "Checking path equality comparision${RESET}"
+      path_eq "$TEST_SCENARIO" "$3"
     else
       echo "Checking has key comparision${RESET}"
       has_key "$TEST_SCENARIO" "$3"
@@ -271,7 +273,7 @@ has_key() {
 
 check_eq() {
   tput cuf 6
-  local type=$(jq  -r --argjson a  "$1" -n '$a|type')
+  local type=$(jq -r --argjson a "$1" -n '$a|type')
   local check
   if [[ $type == "object" || $type == "array" ]]; then
     check=$(jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
@@ -290,6 +292,27 @@ check_eq() {
   fi
 }
 
+path_eq() {
+  local keys=$(jq -r --argjson a "$1" -n '$a | keys[]')
+  if [[ -z "$keys" ]]; then
+    return
+  fi
+  for key in "$keys"; do
+    tput cuf 6
+    local value=$(jq -c -r --argjson a "$1" -n "\$a | .\"$key\"")
+    echo "When path is '$key' and value is $value"
+    local compare_value=$(jq -r --argjson a "$2" -n "\$a | try .$key catch \"OBJECT_FETCH_ERROR_JQ_API_TEST\"" 2>/dev/null)
+    if [[ -z "$compare_value" ]]; then
+      tput cuf 8
+      echo "${RED}${BOLD}Check Failed${RESET}"
+      tput cuf 2
+      echo "INVALID PATH SYNTAX: ${RED}data[0]target_id${RESET}"
+      return
+    fi
+    tput cuf 2
+    check_eq "$value" "$compare_value"
+  done
+}
 
 run() {
   for arg in "$@"; do
