@@ -271,7 +271,13 @@ has_key() {
 
 check_eq() {
   tput cuf 6
-  local check=$(jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
+  local type=$(jq  -r --argjson a  "$1" -n '$a|type')
+  local check
+  if [[ $type == "object" || $type == "array" ]]; then
+    check=$(jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
+  else
+    check=$(jq --argjson a "$1" --argjson b "$2" -n '$a == $b')
+  fi
   if [[ $check == "true" ]]; then
     echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
@@ -283,6 +289,7 @@ check_eq() {
     echo "${RED}$2${RESET}"
   fi
 }
+
 
 run() {
   for arg in "$@"; do
