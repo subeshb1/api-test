@@ -30,7 +30,7 @@ Deno.test({
     expect(response.includes(
       `BODY:
 {
-  "id": "1",
+  "id": "2",
   "author": "Robin Wieruch",
   "title": "The Road to React"
 }`,
