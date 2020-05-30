@@ -1,0 +1,12 @@
+{
+  "testCases":{
+    "get_api":{
+      "path": "/books/1"
+    },
+    "post_api":{
+      "path": "/books/1",
+      "method": "POST"
+    }
+  },
+  "url": "localhost:3000"
+}
