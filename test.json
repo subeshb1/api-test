@@ -1,0 +1,184 @@
+{
+  "name": "Performance api test",
+  "testCases": {
+    "missing_required": {
+      "path": "/app-signals/workstreams/work_stream_1/targets/focus",
+      "method": "post",
+      "description": "When start_date and end date is missing",
+      "body": {
+        "page": 1,
+        "per_page": 1
+      },
+      "expect": {
+        "header": {
+          "contains": {
+            "Content-Type": "application/json; charset=utf-8",
+            "http_response": "HTTP/1.1 422 Unprocessable Entity"
+          },
+          "hasKey": ["http_status", "Date"]
+        },
+        "body": {
+          "eq": {
+            "ByField": {
+              "EndDate": [
+                {
+                  "Code": "C-INVALID_END_DATE",
+                  "Message": "end_date is a required field and should follow ISO8601 format."
+                }
+              ],
+              "StartDate": [
+                {
+                  "Code": "C-INVALID_START_DATE",
+                  "Message": "start_date is a required field and should follow ISO8601 format."
+                }
+              ]
+            }
+          },
+          "hasKey": ["", "ByField"],
+          "contains": {
+            "ByField": {
+              "EndDate": [
+                {
+                  "Code": "C-INVALID_END_DATE"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "invalid_params": {
+      "path": "/app-signals/workstreams/work_stream_1/targets/focus",
+      "method": "post",
+      "description": "When params are invalid",
+      "body": {
+        "start_date": "2020-0-01",
+        "end_date": "2020-3-30",
+        "target_ids": ["1", "2"],
+        "page": 1,
+        "per_page": 100
+      },
+      "expect": {
+        "header": {
+          "contains": {
+            "Content-Type": "application/json; charset=utf-8",
+            "http_response": "HTTP/1.1 422 Unprocessable Entity"
+          },
+          "hasKey": ["http_status", "Date"]
+        },
+        "body": {
+          "eq": {
+            "ByField": {
+              "EndDate": [
+                {
+                  "Code": "C-INVALID_END_DATE",
+                  "Message": "end_date is a required field and should follow ISO8601 format."
+                }
+              ],
+              "StartDate": [
+                {
+                  "Code": "C-INVALID_START_DATE",
+                  "Message": "start_date is a required field and should follow ISO8601 format."
+                }
+              ],
+              "TargetIDs[0]": [
+                {
+                  "Code": "C-INVALID_ID_FORMAT",
+                  "Message": "The provided ID should be valid ID with length 36."
+                }
+              ],
+              "TargetIDs[1]": [
+                {
+                  "Code": "C-INVALID_ID_FORMAT",
+                  "Message": "The provided ID should be valid ID with length 36."
+                }
+              ]
+            }
+          },
+          "hasKey": ["", "ByField"],
+          "contains": {
+            "ByField": {
+              "EndDate": [
+                {
+                  "Code": "C-INVALID_END_DATE"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "per_page": {
+      "path": "/app-signals/workstreams/work_stream_1/targets/focus",
+      "method": "post",
+      "description": "When per page is 2",
+      "body": {
+        "start_date": "2020-01-01",
+        "end_date": "2020-03-30",
+        "page": 1,
+        "per_page": 2
+      },
+      "header": {},
+      "expect": {
+        "body": {
+          "path_eq": {
+            "data[0]": {
+              "target_id": "1164",
+              "mode": "focused",
+              "duration": 1994,
+              "target_name": "http://website1164.com"
+            },
+            "data[1].target_id": 11738
+          },
+          "path_contains": {
+            "data[0]": {
+              "target_id": "1164"
+            },
+            "data[1].target_id": 11738
+          }
+
+        }
+      }
+    },
+    "parse_error": {
+      "path": "/app-signals/workstreams/work_stream_1/targets/focus",
+      "method": "post",
+      "description": "When per page is 2",
+      "body": {
+        "start_date": "2020-01-01",
+        "end_date": "2020-03-30",
+        "page": "1",
+        "per_page": 2
+      }
+    },
+    "all_valid_test": {
+      "path": "/app-signals/workstreams/work_stream_1/targets/focus",
+      "method": "post",
+      "description": "When params are invalid",
+      "body": {
+        "start_date": "2020-01-01",
+        "end_date": "2020-03-30",
+        "page": 1,
+        "per_page": 100
+      },
+      "header": {},
+      "expect": {
+        "header": {
+          "contains": {
+            "Content-Type": "application/json; charset=utf-8",
+            "http_response": "HTTP/1.1 200 OK"
+          },
+          "hasKey": ["Content-Type"]
+        },
+        "body": {
+          "hasKey": ["meta.total_duration", "data.99"],
+          "contains": { "data": [], "meta": {} }
+        }
+      }
+    }
+  },
+  "url": "localhost:3304",
+  "header": {
+    "Authorization": "Bearer  ACCESS_TOKEN : ID_TOKEN"
+  }
+}
