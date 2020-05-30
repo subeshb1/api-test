@@ -1,9 +1,18 @@
 version: "3.7"
 services:
-  deno:
+  api-test:
     build: .
     image: api-test
     ports:
       - "3000:3000"
     volumes:
       - ./:/app
+      - ../api-test.sh:/app/api-test.sh
+
+  test:
+    build: .
+    image: api-test
+    command:  test --allow-run test.ts
+    volumes:
+      - ./:/app
+      - ../api-test.sh:/app/api-test.sh

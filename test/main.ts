@@ -49,8 +49,7 @@ const postBook = async (ctx: RouterContext<RouteParams>) => {
     });
     const body: any = JSON.parse(result.value)
     const book: IBook | undefined = searchBookById(body.id)
-    console.log(body)
-    if (!book) {
+      if (!book) {
       response.status = 200
       response.body = body
     } else {

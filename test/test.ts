@@ -3,7 +3,7 @@ import { expect } from "https://deno.land/x/expect/mod.ts";
 async function run(testCase: string) {
   const cmd = Deno.run({
     cmd: [
-      "../api-test.sh",
+      "./api-test.sh",
       "-f",
       "test.json",
       "run",
