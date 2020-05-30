@@ -2,6 +2,8 @@
 
 A simple bash script to test JSON API from terminal in a structured and organized way.
 
+![CI](https://github.com/subeshb1/api-test/workflows/CI/badge.svg)
+
 ## Setting up
 
 ### Requirements
