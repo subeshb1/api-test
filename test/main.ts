@@ -1,4 +1,4 @@
-import { Application, Router } from 'https://deno.land/x/oak/mod.ts'
+import { Application, Router, helpers, RouterContext, RouteParams } from 'https://deno.land/x/oak/mod.ts'
 
 const env = Deno.env.toObject()
 const HOST = env.HOST || '0.0.0.0'
@@ -26,9 +26,10 @@ let books: Array<IBook> = [{
 
 const searchBookById = (id: string): (IBook | undefined) => books.filter(book => book.id === id)[0]
 
-const getBook = ({ params, response }: { params: { id: string }; response: any }) => {
-  console.log(params)
-  const book: IBook | undefined = searchBookById(params.id)
+const getBook = (ctx: RouterContext<any>) => {
+  const { response }: { response: any } = ctx;
+  const query = helpers.getQuery(ctx);
+  const book: IBook | undefined = searchBookById(query.id)
   if (book) {
     response.status = 200
     response.body = book
@@ -38,10 +39,34 @@ const getBook = ({ params, response }: { params: { id: string }; response: any }
   }
 }
 
+const postBook = async (ctx: RouterContext<RouteParams>) => {
+  const { request, response } = ctx;
+  if (request.hasBody) {
+    const result: any = await request.body({
+      contentTypes: {
+        text: ["application/javascript"],
+      },
+    });
+    const body: any = JSON.parse(result.value)
+    const book: IBook | undefined = searchBookById(body.id)
+    console.log(body)
+    if (!book) {
+      response.status = 200
+      response.body = body
+    } else {
+      response.status = 422
+      response.body = { message: `Book already exists.` }
+    }
+  } else {
+    response.status = 422
+    response.body = { message: `Can't parse body.` }
+  }
+}
+
 const router = new Router()
-router.get('/books/:id', getBook)
+router.get('/books', getBook)
+  .post('/books', postBook)
 // .get('/books', getBooks)
-// .post('/books', addBook)
 // .put('/books/:id', updateBook)
 // .delete('/books/:id', deleteBook)
 
