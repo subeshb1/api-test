@@ -222,7 +222,7 @@ test_runner() {
       echo "Checking path equality comparision${RESET}"
       path_checker "$TEST_SCENARIO" "$3"
     elif [[ $test == "path_contains" ]]; then
-      echo "Checking path equality comparision${RESET}"
+      echo "Checking path contains comparision${RESET}"
       path_checker "$TEST_SCENARIO" "$3" 1
     else
       echo "Checking has key comparision${RESET}"
@@ -233,7 +233,7 @@ test_runner() {
 
 contains() {
   tput cuf 6
-  local check=$(jq --argjson a "$1" --argjson b "$2" -n '$a | select(. != null) | $b | contains($a)')
+  local check=$(jq -c --argjson a "$1" --argjson b "$2" -n '$a | select(. != null) | $b | contains($a)')
   if [[ $check == "true" ]]; then
     echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
@@ -242,6 +242,7 @@ contains() {
     echo "${GREEN}$1${RESET}"
     echo "GOT:"
     echo "${RED}$2${RESET}"
+    echo ""
   fi
 }
 
@@ -268,6 +269,7 @@ has_key() {
       echo "${RED}${BOLD}Check Failed${RESET}"
       echo "CANNOT FIND KEY:"
       echo "${RED}$path${RESET}"
+      echo ""
       return
     fi
   done
@@ -276,12 +278,12 @@ has_key() {
 
 check_eq() {
   tput cuf 6
-  local type=$(jq -r --argjson a "$1" -n '$a|type')
+  local type=$(jq -r -c --argjson a "$1" -n '$a|type')
   local check
   if [[ $type == "object" || $type == "array" ]]; then
-    check=$(jq --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
+    check=$(jq -c --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
   else
-    check=$(jq --argjson a "$1" --argjson b "$2" -n '$a == $b')
+    check=$(jq -c --argjson a "$1" --argjson b "$2" -n '$a == $b')
   fi
   if [[ $check == "true" ]]; then
     echo "${GREEN}${BOLD}Check Passed${RESET}"
@@ -292,11 +294,12 @@ check_eq() {
     echo "${GREEN}$1${RESET}"
     echo "GOT:"
     echo "${RED}$2${RESET}"
+    echo ""
   fi
 }
 
 path_checker() {
-  local keys=$(jq -r --argjson a "$1" -n '$a | keys[]')
+  local keys=$(jq -c -r --argjson a "$1" -n '$a | keys[]')
   if [[ -z "$keys" ]]; then
     return
   fi
@@ -304,7 +307,7 @@ path_checker() {
     tput cuf 6
     local value=$(jq -c -r --argjson a "$1" -n "\$a | .\"$key\"")
     echo "When path is '$key'"
-    local compare_value=$(jq -r --argjson a "$2" -n "\$a | try .$key catch \"OBJECT_FETCH_ERROR_JQ_API_TEST\"" 2>/dev/null)
+    local compare_value=$(jq -c -r --argjson a "$2" -n "\$a | try .$key catch \"OBJECT_FETCH_ERROR_JQ_API_TEST\"" 2>/dev/null)
     if [[ -z "$compare_value" ]]; then
       tput cuf 8
       echo "${RED}${BOLD}Check Failed${RESET}"
@@ -313,10 +316,10 @@ path_checker() {
       return
     fi
     tput cuf 2
-    if [[ $3 == 0 ]]; then
-      check_eq "$value" "$compare_value"
-    else
+    if [[ $3 == 1 ]]; then
       contains "$value" "$compare_value"
+    else
+      check_eq "$value" "$compare_value"
     fi
   done
 }
