@@ -18,7 +18,7 @@ jobs:
 
     # Runs a set of commands using the runners shell
     - name: Create Image and run mock server
-      run: cd ./test && docker-compose up api-test -d
+      run: cd ./test && docker-compose up  -d api-test
 
     - name: test app
       run: cd ./test && docker-compose up test
