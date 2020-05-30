@@ -25,7 +25,7 @@
       }
     }
   },
-  "url": "localhost:3000",
+  "url": "api-test:3000",
   "header": {
     "Content-Type": "application/javascript"
   }
