@@ -21,4 +21,4 @@ jobs:
       run: cd ./test && docker-compose up  -d api-test
 
     - name: test app
-      run: cd ./test && docker-compose up test
+      run: cd ./test && docker-compose run test
