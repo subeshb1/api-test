@@ -14,33 +14,56 @@ async function run(testCase: string) {
   });
   const output = await cmd.output();
   cmd.close();
-  const outStr = new TextDecoder().decode(output).replace(/META:\n(.*\n){4}/, "").split("\n").filter((x) =>
-    x !== ""
-  ).map((x) =>
-    x.replace(
-      /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-      "",
-    )
+  const outStr = new TextDecoder().decode(output).replace(
+    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
+    "",
   );
   return outStr;
 }
 
 Deno.test({
-  name: "Get APIs ",
+  name: "GET API",
   async fn() {
-    let expected = `
-Running Case: get_api
-Response:
-200 OK
-BODY:
+    const response = await run("get_api");
+    expect(response.includes("Running Case: get_api")).toBeTruthy();
+    expect(response.includes("200 OK")).toBeTruthy();
+    expect(response.includes(
+      `BODY:
 {
   "id": "1",
   "author": "Robin Wieruch",
   "title": "The Road to React"
-}
-`.split("\n").filter((x) => x !== "");
-    const response = await run("get_api");
-    expect(response.map((x, i) => expected[i] === x).filter(x => !x).length).toEqual(0);
+}`,
+    )).toBeTruthy();
+    expect(response.includes(
+      `META:
+{
+  "ResponseTime":`,
+    )).toBeTruthy();
+  },
+  sanitizeResources: false,
+  sanitizeOps: false,
+});
+
+Deno.test({
+  name: "POST API",
+  async fn() {
+    const response = await run("post_api");
+    expect(response.includes("Running Case: post_api")).toBeTruthy();
+    expect(response.includes("200 OK")).toBeTruthy();
+    expect(response.includes(
+      `BODY:
+{
+  "id": "5",
+  "author": "Robin Wieruch",
+  "title": "The Road to React"
+}`,
+    )).toBeTruthy();
+    expect(response.includes(
+      `META:
+{
+  "ResponseTime":`,
+    )).toBeTruthy();
   },
   sanitizeResources: false,
   sanitizeOps: false,

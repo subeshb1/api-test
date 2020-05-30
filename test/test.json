@@ -1,12 +1,32 @@
 {
-  "testCases":{
-    "get_api":{
-      "path": "/books/1"
+  "testCases": {
+    "get_api": {
+      "path": "/books",
+      "query": {
+        "id": "1"
+      }
     },
-    "post_api":{
-      "path": "/books/1",
-      "method": "POST"
+    "post_api": {
+      "path": "/books",
+      "method": "POST",
+      "body": {
+        "id": "5",
+        "author": "Robin Wieruch",
+        "title": "The Road to React"
+      }
+    },
+    "invalid_post_api": {
+      "path": "/books",
+      "method": "POST",
+      "body": {
+        "id": "1",
+        "author": "Robin Wieruch",
+        "title": "The Road to React"
+      }
     }
   },
-  "url": "localhost:3000"
+  "url": "localhost:3000",
+  "header": {
+    "Content-Type": "application/javascript"
+  }
 }
