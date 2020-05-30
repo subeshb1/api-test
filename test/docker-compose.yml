@@ -1,0 +1,9 @@
+version: "3.7"
+services:
+  deno:
+    build: .
+    image: api-test
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
