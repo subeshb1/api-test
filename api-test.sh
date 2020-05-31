@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
+VERSION='0.2.0'
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 BOLD=$(tput bold)
@@ -401,6 +402,10 @@ for arg in "$@"; do
     ;;
   -h | --help)
     usage
+    exit
+    ;;
+  --version)
+    echo "api-test version $VERSION"
     exit
     ;;
   -v | --verbose)

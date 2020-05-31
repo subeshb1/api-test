@@ -115,17 +115,191 @@ The test cases are present in the `testCases` object. The main url for the api i
 
 To pull the `template.json`
 
-```
+```sh
 curl -LJO https://raw.githubusercontent.com/subeshb1/api-test/master/template.json
 ```
 
 ### Running test case
 
-```
+```sh
 api-test -f test.json run test_case_1 # running single test case
 api-test -f test.json run test_case_1 test_case_2 # running multiple test case
 api-test -f test.json run all # running all test case. WARNING: Don't name a test case `all`
+api-test -v -f test.json run test_case_1 # To run in verbose mode use `-v`
 ```
+
+## Automated testing
+
+![test](https://user-images.githubusercontent.com/27361350/82819405-0e5b5f00-9ec0-11ea-959b-211704ea4c1a.gif)
+
+Both the headers and body can be compared to create automated api tests using different types of checking schemes described in further sections. All the checking schemes can be used for a test case.
+To define test units add them in `expect` object in the testCase.
+
+```json
+{
+  "test_case_1": {
+    "path": "/path_1",
+    "method": "POST",
+    "expect": { // automated tests are kept inside this object
+      "header": {
+        ...
+      },
+      "body": {
+        ...
+      }
+    }
+  }
+}
+```
+
+There are 5 ways you can compare the result from the api response.
+
+### 1. eq
+
+The `eq` check compares every element in an object irrespective of the order of object keys and array elements. Every element in compared object should match as the object defined in `eq` block.
+
+#### Syntax
+
+```json
+{
+  ...
+  "expect": {
+    "body": {
+      "eq": {
+        "key": "value"
+      }
+    }
+  }
+}
+
+```
+
+Example:
+The api has following response.
+
+```json
+{
+  "name": "ram",
+  "age": 20
+}
+```
+
+To test using `eq` check:
+
+```json
+{
+  ...
+  "expect": {
+    "body": {
+      "eq": {
+        "name": "ram",
+        "age": 20
+      }
+    }
+  }
+}
+```
+
+The check will pass for the above response. If any of the value or key is different it will throw error.
+
+### 2. contains
+
+The `contains` check compares the expected value with all the possible subset of the compared object irrespective of the order of object keys and array elements. It will pass if the value matches any subset.
+
+#### Syntax
+
+```json
+{
+  ...
+  "expect": {
+    "body": {
+      "contains": {
+        "key": "value"
+      }
+    }
+  }
+}
+
+```
+
+Example:
+The api has following response.
+
+```json
+{
+  "name": "ram",
+  "age": 20
+}
+```
+
+To test using `contains` check:
+
+```json
+{
+  ...
+  "expect": {
+    "body": {
+      "contains": {
+        "age": 20
+      }
+    }
+  }
+}
+```
+
+The check will pass for the above response as `"age": 20` is the subset of response.
+
+### 3. hasKeys
+
+The `hasKeys` will check if the provided keys in array are present in the response or not.
+
+#### Syntax
+
+```json
+{
+  ...
+  "expect": {
+    "body": {
+      "hasKeys": []
+    }
+  }
+}
+
+```
+
+Example:
+The api has following response.
+
+```json
+{
+  "people": [
+    {
+      "name": "ram",
+      "age": 20
+    },
+    {
+      "name": "Shyam",
+      "age": 21
+    }
+  ]
+}
+```
+
+To test using `hasKey` check:
+
+```json
+{
+  ...
+  "expect": {
+    "body": {
+      "hasKeys": ["people", "people.0", "people.1", "people.0.name", "people.1.name"]
+    }
+  }
+}
+```
+
+All the above keys are valid in the response. We can compare the key at any depth. While accessing arrays, we sure to use the index without brackets. The key accessing pattern contradicts with the next two checking schemes where bracket is used to access array properties.
+
 
 ## Uninstalling
 
