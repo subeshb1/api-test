@@ -61,13 +61,15 @@ color_response() {
 function usage() {
   case $1 in
   run)
+    echo "Run test cases specified in the test file."
+    echo ""
     echo "USAGE: $COMMAND_NAME [-v] -f file_name run [-hiIs] [ARGS]"
     echo ""
     echo "OPTIONS:"
     echo "  -h (--help)           print this message"
     echo "  -i (--include)        include header"
     echo "  -I (--header-only)    header only"
-    echo "  -s (--silent)         silent mode"
+    echo "  -s (--silent)         print response status and message only"
     echo ""
     echo "ARGS:"
     echo "  all                   Run all test case."
@@ -77,17 +79,38 @@ function usage() {
     echo "'api-test -f test.json run test_case_1 test_case_2', 'api-test -f test.json run all'"
     exit
     ;;
+  test)
+    echo "Run automated tests for a test case."
+    echo ""
+    echo "USAGE: $COMMAND_NAME [-v] -f file_name test [ARGS]"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h (--help)           print this message"
+    echo ""
+    echo "ARGS:"
+    echo "  all                   Run all automated tests."
+    echo "  <test_case_name>      Run provided automated test."
+    echo ""
+    echo "EXAMPLE:"
+    echo "'api-test -f test.json test test_case_1 test_case_2', 'api-test -f test.json test all'"
+    exit
+    ;;
   *)
+    echo "A simple program to test JSON APIs."
+    echo ""
     echo "USAGE: $COMMAND_NAME [-hv] -f file_name [CMD] [ARGS]"
     echo ""
     echo "OPTIONS:"
     echo "  -h (--help)       print this message"
     echo "  -v (--verbose)    verbose logging"
     echo "  -f (--file)       file to test"
+    echo "  --version         print the version of the program"
     echo ""
     echo "COMMANDS:"
     echo "  run               Run test cases specified in the test file."
-    echo "                    Example: 'api-test -f test.json run test_case_1 test_case_2', 'api-test -f test.json run all'"
+    echo "  test              Run automated test in the test file."
+    echo ""
+    echo "Run 'api-test COMMAND --help' for more information on a command."
     exit
     ;;
   esac
@@ -373,7 +396,7 @@ test() {
       shift
       ;;
     -h | --help)
-      usage run
+      usage test
       exit
       ;;
     esac

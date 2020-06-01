@@ -52,17 +52,21 @@ Since it is a small bash file, you can copy the content in https://raw.githubuse
 ```sh
 $ api-test.sh -h
 
-USAGE: api-test [-hv] [-f file_name] [CMD] [ARGS]
+A simple program to test JSON APIs.
+
+USAGE: api-test [-hv] -f file_name [CMD] [ARGS]
 
 OPTIONS:
   -h (--help)       print this message
-  -h (--help)       print this message
   -v (--verbose)    verbose logging
   -f (--file)       file to test
+  --version         print the version of the program
 
 COMMANDS:
   run               Run test cases specified in the test file.
-                    Example: 'api-test -f test.json run test_case_1 test_case_2', 'api-test -f test.json run all'
+  test              Run automated test in the test file.
+
+Run 'api-test COMMAND --help' for more information on a command.
 ```
 
 ### Test file
@@ -72,7 +76,7 @@ The test file will contain test cases in json format.
 Example:
 `test.json`
 
-```json
+```js
 {
   "name": "My API test",
   "testCases": {
@@ -130,12 +134,18 @@ api-test -v -f test.json run test_case_1 # To run in verbose mode use `-v`
 
 ## Automated testing
 
+To run an automated test run,
+```sh
+api-test -f test.json test test_case_1
+api-test -f test.json test all # To run all tests
+```
+
 ![test](https://user-images.githubusercontent.com/27361350/82819405-0e5b5f00-9ec0-11ea-959b-211704ea4c1a.gif)
 
 Both the headers and body can be compared to create automated api tests using different types of checking schemes described in further sections. All the checking schemes can be used for a test case.
 To define test units add them in `expect` object in the testCase.
 
-```json
+```js
 {
   "test_case_1": {
     "path": "/path_1",
@@ -160,7 +170,7 @@ The `eq` check compares every element in an object irrespective of the order of 
 
 #### Syntax
 
-```json
+```js
 {
   ...
   "expect": {
@@ -177,7 +187,7 @@ The `eq` check compares every element in an object irrespective of the order of 
 Example:
 The api has following response.
 
-```json
+```js
 {
   "name": "ram",
   "age": 20
@@ -186,7 +196,7 @@ The api has following response.
 
 To test using `eq` check:
 
-```json
+```js
 {
   ...
   "expect": {
@@ -208,7 +218,7 @@ The `contains` check compares the expected value with all the possible subset of
 
 #### Syntax
 
-```json
+```js
 {
   ...
   "expect": {
@@ -225,7 +235,7 @@ The `contains` check compares the expected value with all the possible subset of
 Example:
 The api has following response.
 
-```json
+```js
 {
   "name": "ram",
   "age": 20
@@ -234,7 +244,7 @@ The api has following response.
 
 To test using `contains` check:
 
-```json
+```js
 {
   ...
   "expect": {
@@ -255,7 +265,7 @@ The `hasKeys` will check if the provided keys in array are present in the respon
 
 #### Syntax
 
-```json
+```js
 {
   ...
   "expect": {
@@ -270,7 +280,7 @@ The `hasKeys` will check if the provided keys in array are present in the respon
 Example:
 The api has following response.
 
-```json
+```js
 {
   "people": [
     {
@@ -287,7 +297,7 @@ The api has following response.
 
 To test using `hasKey` check:
 
-```json
+```js
 {
   ...
   "expect": {
@@ -298,8 +308,122 @@ To test using `hasKey` check:
 }
 ```
 
-All the above keys are valid in the response. We can compare the key at any depth. While accessing arrays, we sure to use the index without brackets. The key accessing pattern contradicts with the next two checking schemes where bracket is used to access array properties.
+All the above keys are valid in the response. We can compare the key at any depth. While accessing arrays, be sure to use the index without brackets. The key accessing pattern contradicts with the next two checking schemes where bracket is used to access array properties.
 
+### 4. path_eq
+
+The `path_eq` does the same check as `eq` but allows the check to be made inside JSON object path at any depth. The path accessing pattern follows javascript object accessing patterns.
+
+#### Syntax
+
+```js
+{
+  ...
+  "expect": {
+    "path_eq": {
+      "path": {"key": "value:"},
+      "path.key1.key": 1
+    }
+  }
+}
+
+```
+
+Example:
+The api has following response.
+
+```js
+{
+  "people": [
+    {
+      "name": "ram",
+      "age": 20
+    },
+    {
+      "name": "Shyam",
+      "age": 21
+    }
+  ]
+}
+```
+
+To test using `path_eq` check:
+
+```js
+{
+  ...
+  "expect": {
+    "body": {
+      "path_eq": {
+        "people[0]": {
+          "name": "ram",
+          "age": 20
+        },
+        "people[1].name": "Shyam" 
+      }
+    }
+  }
+}
+```
+The above example shows how to access an object path to compare and check the values at any depths.
+
+
+### 5. path_contains
+
+The `path_contains` does the same check as `contains` but allows the check to be made inside JSON object path at any depth. The path accessing pattern follows javascript object accessing patterns.
+
+#### Syntax
+
+```js
+{
+  ...
+  "expect": {
+    "path_contains": {
+      "path": "value",
+      "path.key1.key": "value"
+    }
+  }
+}
+
+```
+
+Example:
+The api has following response.
+
+```js
+{
+  "people": [
+    {
+      "name": "ram",
+      "age": 20
+    },
+    {
+      "name": "Shyam",
+      "age": 21
+    }
+  ]
+}
+```
+
+To test using `path_contains` check:
+
+```js
+{
+  ...
+  "expect": {
+    "body": {
+      "path_contains": {
+        "people[0]": {
+          "name": "ram",
+        },
+        "people[1].name": "Shyam",
+        "people": []
+      }
+    }
+  }
+}
+```
+The above example shows how to access an object path to compare and check the values at any depths. All the above comparison are a subset of response and will pass the check.
 
 ## Uninstalling
 
