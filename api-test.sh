@@ -21,6 +21,7 @@ ID_TOKEN=""
 URL=""
 
 SHOW_HEADER=0
+SUPER_SILENT=0
 HEADER_ONLY=0
 SILENT=0
 API_ERROR=0
@@ -70,6 +71,7 @@ function usage() {
     echo "  -i (--include)        include header"
     echo "  -I (--header-only)    header only"
     echo "  -s (--silent)         print response status and message only"
+    echo "  -S (--super-silent)   print response only"
     echo ""
     echo "ARGS:"
     echo "  all                   Run all test case."
@@ -181,8 +183,10 @@ display_results() {
     fi
 
   fi
-  echo "META:"
-  echo "$META" | jq -C '.'
+  if [[ $SUPER_SILENT == 0 ]]; then
+    echo "META:"
+    echo "$META" | jq -C '.'
+  fi
 }
 
 api_factory() {
@@ -199,6 +203,9 @@ api_factory() {
 }
 
 test_factory() {
+  TOTAL_TEST_CASE=0
+  TOTAL_FAIL_CASE=0
+  ANY_API_ERROR=0
   for TEST_CASE in $@; do
     API_ERROR=0
     echo "${BOLD}Testing Case:${RESET} $TEST_CASE"
@@ -213,6 +220,10 @@ test_factory() {
     fi
     call_api $TEST_CASE
     if [[ $API_ERROR == 1 ]]; then
+      ANY_API_ERROR=1
+      tput cuf 2
+      echo -e "${BOLD}${RED}Error running tests after failed api request for '$TEST_CASE' ${RESET}"
+      echo -e "\n"
       continue
     fi
 
@@ -239,19 +250,42 @@ test_factory() {
       tput cuf 2
       echo "${UNDERLINE}Checking condition form external program${RESET}"
       external_script "$TEST_SCENARIO" "$TEST_CASE" "$RESPONSE_BODY" "$RESPONSE_HEADER"
+      TOTAL_TEST_CASE=$((TOTAL_TEST_CASE + 1))
       echo ""
       echo ""
     fi
+
   done
+  echo -e "${BOLD}Total tests:\t$TOTAL_TEST_CASE"
+  if [[ $(($TOTAL_TEST_CASE - $TOTAL_FAIL_CASE)) != 0 ]]; then
+    printf $GREEN
+  fi
+  echo -e "${BOLD}Total success:\t$(($TOTAL_TEST_CASE - $TOTAL_FAIL_CASE))${RESET}"
+
+  if [[ $TOTAL_FAIL_CASE != 0 ]]; then
+    printf $RED
+  else
+    if [[ $ANY_API_ERROR != 0 ]]; then
+      echo -e "\n${BOLD}${RED}Some test cases failed to connect to the requested api.${RESET}"
+      exit 1
+    else
+      echo -e "\n${BOLD}${GREEN}All tests ran successfully!${RESET}"
+    fi
+    exit 0
+  fi
+  echo -e "${BOLD}Total failure:\t$TOTAL_FAIL_CASE${RESET}"
+  echo -e "\n${BOLD}${RED}Tests Failed!${RESET}"
+  exit 1
 
 }
 
 test_runner() {
   for test in ""contains eq path_eq path_contains hasKey[]""; do
-    local TEST_SCENARIO=$(jq -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
+    local TEST_SCENARIO=$(jq -c -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
     fi
+    TOTAL_TEST_CASE=$((TOTAL_TEST_CASE + 1))
     tput cuf 4
     if [[ $test == "contains" ]]; then
       echo "Checking contains comparision${RESET}"
@@ -276,11 +310,12 @@ external_script() {
   $1 "$2" "$3" "$4"
   local EXIT_CODE=$?
   if [[ $EXIT_CODE == 0 ]]; then
-    tput cuf 6
+    tput cuf 4
     echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
-    tput cuf 6
+    tput cuf 4
     echo "${RED}${BOLD}Check Failed${RESET}"
+    TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
   fi
 }
 
@@ -291,6 +326,7 @@ contains() {
     echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
     echo "${RED}${BOLD}Check Failed${RESET}"
+    TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
     echo "EXPECTED:"
     echo "${GREEN}$1${RESET}"
     echo "GOT:"
@@ -320,6 +356,7 @@ has_key() {
     done
     if [[ $FOUND == 0 ]]; then
       echo "${RED}${BOLD}Check Failed${RESET}"
+      TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
       echo "CANNOT FIND KEY:"
       echo "${RED}$path${RESET}"
       echo ""
@@ -343,6 +380,7 @@ check_eq() {
   else
     tput cuf 2
     echo "${RED}${BOLD}Check Failed${RESET}"
+    TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
     echo "EXPECTED:"
     echo "${GREEN}$1${RESET}"
     echo "GOT:"
@@ -364,6 +402,7 @@ path_checker() {
     if [[ -z "$compare_value" ]]; then
       tput cuf 8
       echo "${RED}${BOLD}Check Failed${RESET}"
+      TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
       tput cuf 2
       echo "INVALID PATH SYNTAX: ${RED}data[0]target_id${RESET}"
       return
@@ -390,6 +429,11 @@ run() {
       ;;
     -s | --silent)
       SILENT=1
+      shift
+      ;;
+    -S | --super-silent)
+      SILENT=1
+      SUPER_SILENT=1
       shift
       ;;
     -h | --help)
