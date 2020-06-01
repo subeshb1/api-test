@@ -153,7 +153,7 @@ parse_header() {
   RESPONSE_HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
            \"http_status\": \"${RESPONSE[1]}\",
            \"http_message\": \"${RESPONSE[@]:2}\",
-           \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -s add)
+           \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -c -s add)
 }
 
 ## run specific methods
@@ -216,21 +216,38 @@ test_factory() {
       continue
     fi
 
-    tput cuf 2
-    echo "${UNDERLINE}a. Checking condition for header${RESET}"
-    test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
-    echo ""
-    echo ""
-    tput cuf 2
-    echo "${UNDERLINE}b. Checking condition for body${RESET}"
-    test_runner $TEST_CASE "body" "$RESPONSE_BODY"
-    echo ""
-    echo ""
+    local TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.header? | select(. !=null and . != {})" $FILE)
+    if [[ ! -z $TEST_SCENARIO ]]; then
+      tput cuf 2
+      echo "${UNDERLINE}Checking condition for header${RESET}"
+      test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
+      echo ""
+      echo ""
+    fi
+
+    TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.body? | select(. !=null and . != {})" $FILE)
+    if [[ ! -z $TEST_SCENARIO ]]; then
+      tput cuf 2
+      echo "${UNDERLINE}Checking condition for body${RESET}"
+      test_runner $TEST_CASE "body" "$RESPONSE_BODY"
+      echo ""
+      echo ""
+    fi
+
+    TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.external? | select(. !=null and . != \"\")" $FILE)
+    if [[ ! -z $TEST_SCENARIO ]]; then
+      tput cuf 2
+      echo "${UNDERLINE}Checking condition form external program${RESET}"
+      external_script "$TEST_SCENARIO" "$TEST_CASE" "$RESPONSE_BODY" "$RESPONSE_HEADER"
+      echo ""
+      echo ""
+    fi
   done
+
 }
 
 test_runner() {
-  for test in ""contains eq path_eq path_contains hasKey[] external""; do
+  for test in ""contains eq path_eq path_contains hasKey[]""; do
     local TEST_SCENARIO=$(jq -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
@@ -248,9 +265,6 @@ test_runner() {
     elif [[ $test == "path_contains" ]]; then
       echo "Checking path contains comparision${RESET}"
       path_checker "$TEST_SCENARIO" "$3" 1
-    elif [[ $test == "external" ]]; then
-      echo "Checking external comparision${RESET}"
-      external_script "$TEST_SCENARIO" "$3"
     else
       echo "Checking has key comparision${RESET}"
       has_key "$TEST_SCENARIO" "$3"
@@ -259,16 +273,14 @@ test_runner() {
 }
 
 external_script() {
-  $1 "$2"
-  if [[ $? == 0 ]]; then
+  $1 "$2" "$3" "$4"
+  local EXIT_CODE=$?
+  if [[ $EXIT_CODE == 0 ]]; then
     tput cuf 6
-
     echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
     tput cuf 6
-
     echo "${RED}${BOLD}Check Failed${RESET}"
-    echo "External check returned error"
   fi
 }
 
