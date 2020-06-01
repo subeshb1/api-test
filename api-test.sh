@@ -514,20 +514,45 @@ for arg in "$@"; do
   esac
 done
 
+command -v curl >/dev/null 2>&1 || {
+  echo >&2 "This program requires 'curl' to run. Please install 'curl'"
+  exit 1
+}
+command -v jq >/dev/null 2>&1 || {
+  echo >&2 "This program requires 'jq' to run. Please install 'jq'"
+  exit 1
+}
+
 if [ ! -f "$FILE" ]; then
-  echo "Please provide an existing file."
+  DEFAULT_FILE=("test.json api-test.json template.json")
+  FOUND_FILE=0
+  for default in $DEFAULT_FILE; do
+    if [ -f "$default" ]; then
+      FOUND_FILE=1
+      FILE=$default
+      break
+    fi
+  done
+  if [[ $FOUND_FILE == 0 ]]; then
+    echo "Please provide an existing file."
+    exit 1
+  fi
+  echo $FILE
+fi
+
+ jq empty $FILE
+
+if [ $? -ne 0 ]; then
   exit 1
 fi
 
-cat $FILE | jq empty
-if [ $? -ne 0 ]; then
-  echo "Empty file"
-  exit
-fi
 URL=$(jq -r '.url' $FILE)
-ACCESS_TOKEN=$(jq -r '.accessToken' $FILE)
-ID_TOKEN=$(jq -r '.idToken' $FILE)
 COMMON_HEADER=$(cat $FILE | jq -r -c ". | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
+if [[ -z $(jq -r '.testCases | select(. != null and . != {})' $FILE) ]];then
+  echo "'testCases' is a required field in base object of a test file and must have atleast one test case."
+  exit 1
+fi
+
 
 case $ACTION in
 run)
