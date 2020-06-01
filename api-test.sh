@@ -230,7 +230,7 @@ test_factory() {
 }
 
 test_runner() {
-  for test in ""contains eq path_eq path_contains hasKey[]""; do
+  for test in ""contains eq path_eq path_contains hasKey[] external""; do
     local TEST_SCENARIO=$(jq -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
@@ -248,11 +248,28 @@ test_runner() {
     elif [[ $test == "path_contains" ]]; then
       echo "Checking path contains comparision${RESET}"
       path_checker "$TEST_SCENARIO" "$3" 1
+    elif [[ $test == "external" ]]; then
+      echo "Checking external comparision${RESET}"
+      external_script "$TEST_SCENARIO" "$3"
     else
       echo "Checking has key comparision${RESET}"
       has_key "$TEST_SCENARIO" "$3"
     fi
   done
+}
+
+external_script() {
+  $1 "$2"
+  if [[ $? == 0 ]]; then
+    tput cuf 6
+
+    echo "${GREEN}${BOLD}Check Passed${RESET}"
+  else
+    tput cuf 6
+
+    echo "${RED}${BOLD}Check Failed${RESET}"
+    echo "External check returned error"
+  fi
 }
 
 contains() {
