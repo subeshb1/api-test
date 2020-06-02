@@ -97,6 +97,23 @@ function usage() {
     echo "'api-test -f test.json test test_case_1 test_case_2', 'api-test -f test.json test all'"
     exit
     ;;
+  describe)
+    echo "List test cases or describe the contents in a test case."
+    echo ""
+    echo "USAGE: $COMMAND_NAME [-v] -f file_name describe [ARGS]"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h (--help)                 print this message"
+    echo ""
+    echo "ARGS:"
+    echo "  <empty>                     List all test case."
+    echo "  <test_case_name>            Describe a test case."
+    echo "  <test_case_name>  <path>    Describe a test case property using json path."
+    echo ""
+    echo "EXAMPLE:"
+    echo "'api-test -f test.json describe', 'api-test -f test.json describe test_case_1', 'api-test -f test.json describe test_case_1 body' "
+    exit
+    ;;
   *)
     echo "A simple program to test JSON APIs."
     echo ""
@@ -111,6 +128,7 @@ function usage() {
     echo "COMMANDS:"
     echo "  run               Run test cases specified in the test file."
     echo "  test              Run automated test in the test file."
+    echo "  describe          List test cases or describe the contents in a test case."
     echo ""
     echo "Run 'api-test COMMAND --help' for more information on a command."
     exit
