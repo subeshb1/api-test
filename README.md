@@ -65,6 +65,7 @@ OPTIONS:
 COMMANDS:
   run               Run test cases specified in the test file.
   test              Run automated test in the test file.
+  describe          List test cases or describe the contents in a test case.
 
 Run 'api-test COMMAND --help' for more information on a command.
 ```
@@ -135,6 +136,7 @@ api-test -v -f test.json run test_case_1 # To run in verbose mode use `-v`
 ## Automated testing
 
 To run an automated test run,
+
 ```sh
 api-test -f test.json test test_case_1
 api-test -f test.json test all # To run all tests
@@ -359,14 +361,14 @@ To test using `path_eq` check:
           "name": "ram",
           "age": 20
         },
-        "people[1].name": "Shyam" 
+        "people[1].name": "Shyam"
       }
     }
   }
 }
 ```
-The above example shows how to access an object path to compare and check the values at any depths.
 
+The above example shows how to access an object path to compare and check the values at any depths.
 
 ### 5. path_contains
 
@@ -378,10 +380,12 @@ The `path_contains` does the same check as `contains` but allows the check to be
 {
   ...
   "expect": {
-    "path_contains": {
-      "path": "value",
-      "path.key1.key": "value"
-    }
+     "body": {
+      "path_contains": {
+        "path": "value",
+        "path.key1.key": "value"
+      }
+     }
   }
 }
 
@@ -423,6 +427,67 @@ To test using `path_contains` check:
   }
 }
 ```
+
+### 6. External scripts or program
+
+If none of the above checks work for you, there is a way to inject **any language** to compare and test an api response. To do so, provide the command name or script in the `external` key in the `expect` block. If a test case passes return an `exit code 0` and if a test fails `exit code > 0` to communicate with the `api-test` program.
+
+#### Syntax
+
+```js
+{
+  ...
+  "expect": {
+    "body": {...},
+    "header": {...},
+    "external": "<your program>"
+  }
+}
+```
+
+Example:
+
+test.json
+
+```js
+{
+  ...
+  "expect": {
+    "body": {...},
+    "header": {...},
+    "external": "node test.js"
+  }
+}
+
+```
+
+test.js
+
+```js
+let testCase = process.argv[2]; // First arg will be test case key
+let body = process.argv[3]; // Second arg will be body
+let header = process.argv[4]; // Third arg will be header
+
+let success = true;
+switch (testCase) {
+  case "get_api":
+    if (success) {
+      process.exit(0); // For success case
+    } else {
+      process.exit(1); // For failure case
+    }
+    break;
+  case "invalid_post_api":
+    ...
+    break;
+
+  default:
+    break;
+}
+```
+
+The `test case key`, `body` and `header` are passed respectively to the supplied program. You can use any language as long as you are sending out the correct exit code for failure and success.
+
 The above example shows how to access an object path to compare and check the values at any depths. All the above comparison are a subset of response and will pass the check.
 
 ## Uninstalling

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
-VERSION='0.2.0'
+VERSION='0.3.0'
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 BOLD=$(tput bold)
@@ -21,6 +21,7 @@ ID_TOKEN=""
 URL=""
 
 SHOW_HEADER=0
+SUPER_SILENT=0
 HEADER_ONLY=0
 SILENT=0
 API_ERROR=0
@@ -70,6 +71,7 @@ function usage() {
     echo "  -i (--include)        include header"
     echo "  -I (--header-only)    header only"
     echo "  -s (--silent)         print response status and message only"
+    echo "  -S (--super-silent)   print response only"
     echo ""
     echo "ARGS:"
     echo "  all                   Run all test case."
@@ -95,6 +97,23 @@ function usage() {
     echo "'api-test -f test.json test test_case_1 test_case_2', 'api-test -f test.json test all'"
     exit
     ;;
+  describe)
+    echo "List test cases or describe the contents in a test case."
+    echo ""
+    echo "USAGE: $COMMAND_NAME [-v] -f file_name describe [ARGS]"
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h (--help)                 print this message"
+    echo ""
+    echo "ARGS:"
+    echo "  <empty>                     List all test case."
+    echo "  <test_case_name>            Describe a test case."
+    echo "  <test_case_name>  <path>    Describe a test case property using json path."
+    echo ""
+    echo "EXAMPLE:"
+    echo "'api-test -f test.json describe', 'api-test -f test.json describe test_case_1', 'api-test -f test.json describe test_case_1 body' "
+    exit
+    ;;
   *)
     echo "A simple program to test JSON APIs."
     echo ""
@@ -109,6 +128,7 @@ function usage() {
     echo "COMMANDS:"
     echo "  run               Run test cases specified in the test file."
     echo "  test              Run automated test in the test file."
+    echo "  describe          List test cases or describe the contents in a test case."
     echo ""
     echo "Run 'api-test COMMAND --help' for more information on a command."
     exit
@@ -153,7 +173,7 @@ parse_header() {
   RESPONSE_HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
            \"http_status\": \"${RESPONSE[1]}\",
            \"http_message\": \"${RESPONSE[@]:2}\",
-           \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -s add)
+           \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -c -s add)
 }
 
 ## run specific methods
@@ -181,8 +201,10 @@ display_results() {
     fi
 
   fi
-  echo "META:"
-  echo "$META" | jq -C '.'
+  if [[ $SUPER_SILENT == 0 ]]; then
+    echo "META:"
+    echo "$META" | jq -C '.'
+  fi
 }
 
 api_factory() {
@@ -199,6 +221,9 @@ api_factory() {
 }
 
 test_factory() {
+  TOTAL_TEST_CASE=0
+  TOTAL_FAIL_CASE=0
+  ANY_API_ERROR=0
   for TEST_CASE in $@; do
     API_ERROR=0
     echo "${BOLD}Testing Case:${RESET} $TEST_CASE"
@@ -213,28 +238,72 @@ test_factory() {
     fi
     call_api $TEST_CASE
     if [[ $API_ERROR == 1 ]]; then
+      ANY_API_ERROR=1
+      tput cuf 2
+      echo -e "${BOLD}${RED}Error running tests after failed api request for '$TEST_CASE' ${RESET}"
+      echo -e "\n"
       continue
     fi
 
-    tput cuf 2
-    echo "${UNDERLINE}a. Checking condition for header${RESET}"
-    test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
-    echo ""
-    echo ""
-    tput cuf 2
-    echo "${UNDERLINE}b. Checking condition for body${RESET}"
-    test_runner $TEST_CASE "body" "$RESPONSE_BODY"
-    echo ""
-    echo ""
+    local TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.header? | select(. !=null and . != {})" $FILE)
+    if [[ ! -z $TEST_SCENARIO ]]; then
+      tput cuf 2
+      echo "${UNDERLINE}Checking condition for header${RESET}"
+      test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
+      echo ""
+      echo ""
+    fi
+
+    TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.body? | select(. !=null and . != {})" $FILE)
+    if [[ ! -z $TEST_SCENARIO ]]; then
+      tput cuf 2
+      echo "${UNDERLINE}Checking condition for body${RESET}"
+      test_runner $TEST_CASE "body" "$RESPONSE_BODY"
+      echo ""
+      echo ""
+    fi
+
+    TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.external? | select(. !=null and . != \"\")" $FILE)
+    if [[ ! -z $TEST_SCENARIO ]]; then
+      tput cuf 2
+      echo "${UNDERLINE}Checking condition form external program${RESET}"
+      external_script "$TEST_SCENARIO" "$TEST_CASE" "$RESPONSE_BODY" "$RESPONSE_HEADER"
+      TOTAL_TEST_CASE=$((TOTAL_TEST_CASE + 1))
+      echo ""
+      echo ""
+    fi
+
   done
+  echo -e "${BOLD}Total tests:\t$TOTAL_TEST_CASE"
+  if [[ $(($TOTAL_TEST_CASE - $TOTAL_FAIL_CASE)) != 0 ]]; then
+    printf $GREEN
+  fi
+  echo -e "${BOLD}Total success:\t$(($TOTAL_TEST_CASE - $TOTAL_FAIL_CASE))${RESET}"
+
+  if [[ $TOTAL_FAIL_CASE != 0 ]]; then
+    printf $RED
+  else
+    if [[ $ANY_API_ERROR != 0 ]]; then
+      echo -e "\n${BOLD}${RED}Some test cases failed to connect to the requested api.${RESET}"
+      exit 1
+    else
+      echo -e "\n${BOLD}${GREEN}All tests ran successfully!${RESET}"
+    fi
+    exit 0
+  fi
+  echo -e "${BOLD}Total failure:\t$TOTAL_FAIL_CASE${RESET}"
+  echo -e "\n${BOLD}${RED}Tests Failed!${RESET}"
+  exit 1
+
 }
 
 test_runner() {
   for test in ""contains eq path_eq path_contains hasKey[]""; do
-    local TEST_SCENARIO=$(jq -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
+    local TEST_SCENARIO=$(jq -c -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
     fi
+    TOTAL_TEST_CASE=$((TOTAL_TEST_CASE + 1))
     tput cuf 4
     if [[ $test == "contains" ]]; then
       echo "Checking contains comparision${RESET}"
@@ -255,6 +324,19 @@ test_runner() {
   done
 }
 
+external_script() {
+  $1 "$2" "$3" "$4"
+  local EXIT_CODE=$?
+  if [[ $EXIT_CODE == 0 ]]; then
+    tput cuf 4
+    echo "${GREEN}${BOLD}Check Passed${RESET}"
+  else
+    tput cuf 4
+    echo "${RED}${BOLD}Check Failed${RESET}"
+    TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
+  fi
+}
+
 contains() {
   tput cuf 6
   local check=$(jq -c --argjson a "$1" --argjson b "$2" -n '$a | select(. != null) | $b | contains($a)')
@@ -262,6 +344,7 @@ contains() {
     echo "${GREEN}${BOLD}Check Passed${RESET}"
   else
     echo "${RED}${BOLD}Check Failed${RESET}"
+    TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
     echo "EXPECTED:"
     echo "${GREEN}$1${RESET}"
     echo "GOT:"
@@ -291,6 +374,7 @@ has_key() {
     done
     if [[ $FOUND == 0 ]]; then
       echo "${RED}${BOLD}Check Failed${RESET}"
+      TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
       echo "CANNOT FIND KEY:"
       echo "${RED}$path${RESET}"
       echo ""
@@ -314,6 +398,7 @@ check_eq() {
   else
     tput cuf 2
     echo "${RED}${BOLD}Check Failed${RESET}"
+    TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
     echo "EXPECTED:"
     echo "${GREEN}$1${RESET}"
     echo "GOT:"
@@ -335,6 +420,7 @@ path_checker() {
     if [[ -z "$compare_value" ]]; then
       tput cuf 8
       echo "${RED}${BOLD}Check Failed${RESET}"
+      TOTAL_FAIL_CASE=$((TOTAL_FAIL_CASE + 1))
       tput cuf 2
       echo "INVALID PATH SYNTAX: ${RED}data[0]target_id${RESET}"
       return
@@ -348,6 +434,7 @@ path_checker() {
   done
 }
 
+# run command
 run() {
   for arg in "$@"; do
     case $arg in
@@ -363,6 +450,11 @@ run() {
       SILENT=1
       shift
       ;;
+    -S | --super-silent)
+      SILENT=1
+      SUPER_SILENT=1
+      shift
+      ;;
     -h | --help)
       usage run
       exit
@@ -374,27 +466,17 @@ run() {
   all)
     api_factory "$(jq -r '.testCases | keys[]' $FILE)"
     ;;
+  '') usage run ;;
   *)
     api_factory $@
     ;;
   esac
 }
 
+# test command
 test() {
   for arg in "$@"; do
     case $arg in
-    -i | --include)
-      SHOW_HEADER=1
-      shift
-      ;;
-    -I | --header-only)
-      HEADER_ONLY=1
-      shift
-      ;;
-    -s | --silent)
-      SILENT=1
-      shift
-      ;;
     -h | --help)
       usage test
       exit
@@ -406,15 +488,41 @@ test() {
   all)
     test_factory "$(jq -r '.testCases | keys[]' $FILE)"
     ;;
+  '')
+    usage test
+    ;;
   *)
     test_factory $@
     ;;
   esac
 }
 
+# describe command
+describe() {
+  for arg in "$@"; do
+    case $arg in
+    -h | --help)
+      usage describe
+      exit
+      ;;
+    esac
+  done
+
+  case $1 in
+  '')
+    echo -e "S.N.\tTest case"
+    jq -r '.testCases |  keys[]' $FILE | awk '{print NR "\t" $0}'
+    ;;
+  *)
+    jq -r ".testCases | .$1 | .$2?" $FILE
+    ;;
+  esac
+}
+
+# INIT COMMANDS AND CHECKS
 for arg in "$@"; do
   case $arg in
-  run | test)
+  run | test | describe)
     ACTION="$1"
     shift
     break
@@ -441,26 +549,58 @@ for arg in "$@"; do
   esac
 done
 
+# Check for dependency programs
+command -v curl >/dev/null 2>&1 || {
+  echo >&2 "This program requires 'curl' to run. Please install 'curl'"
+  exit 1
+}
+command -v jq >/dev/null 2>&1 || {
+  echo >&2 "This program requires 'jq' to run. Please install 'jq'"
+  exit 1
+}
+
 if [ ! -f "$FILE" ]; then
-  echo "Please provide an existing file."
+  DEFAULT_FILE=("test.json api-test.json template.json")
+  FOUND_FILE=0
+  for default in $DEFAULT_FILE; do
+    if [ -f "$default" ]; then
+      FOUND_FILE=1
+      FILE=$default
+      break
+    fi
+  done
+  if [[ $FOUND_FILE == 0 ]]; then
+    echo "Please provide an existing file."
+    exit 1
+  fi
+fi
+
+jq empty $FILE
+
+if [ $? -ne 0 ]; then
   exit 1
 fi
 
-cat $FILE | jq empty
-if [ $? -ne 0 ]; then
-  echo "Empty file"
-  exit
+# Check if url is present
+URL=$(jq -r '.url | select( . != null)' $FILE)
+if [[ -z $URL ]]; then
+  echo "'url' is a required field in base object of a test file and must be a string."
+  exit 1
 fi
-URL=$(jq -r '.url' $FILE)
-ACCESS_TOKEN=$(jq -r '.accessToken' $FILE)
-ID_TOKEN=$(jq -r '.idToken' $FILE)
+
 COMMON_HEADER=$(cat $FILE | jq -r -c ". | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
+# Check if test cases is present
+if [[ -z $(jq -r '.testCases | select(. != null and . != {})' $FILE) ]]; then
+  echo "'testCases' is a required field in base object of a test file and must have atleast one test case."
+  exit 1
+fi
 
 case $ACTION in
 run)
   run $@
   ;;
 test) test $@ ;;
+describe) describe $@ ;;
 *)
   usage
   ;;
