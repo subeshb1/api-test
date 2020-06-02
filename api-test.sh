@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
-VERSION='0.2.0'
+VERSION='0.3.0'
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 BOLD=$(tput bold)
@@ -416,6 +416,7 @@ path_checker() {
   done
 }
 
+# run command
 run() {
   for arg in "$@"; do
     case $arg in
@@ -447,27 +448,17 @@ run() {
   all)
     api_factory "$(jq -r '.testCases | keys[]' $FILE)"
     ;;
+  '') usage run ;;
   *)
     api_factory $@
     ;;
   esac
 }
 
+# test command
 test() {
   for arg in "$@"; do
     case $arg in
-    -i | --include)
-      SHOW_HEADER=1
-      shift
-      ;;
-    -I | --header-only)
-      HEADER_ONLY=1
-      shift
-      ;;
-    -s | --silent)
-      SILENT=1
-      shift
-      ;;
     -h | --help)
       usage test
       exit
@@ -479,15 +470,41 @@ test() {
   all)
     test_factory "$(jq -r '.testCases | keys[]' $FILE)"
     ;;
+  '')
+    usage test
+    ;;
   *)
     test_factory $@
     ;;
   esac
 }
 
+# describe command
+describe() {
+  for arg in "$@"; do
+    case $arg in
+    -h | --help)
+      usage describe
+      exit
+      ;;
+    esac
+  done
+
+  case $1 in
+  '')
+    echo -e "S.N.\tTest case"
+    jq -r '.testCases |  keys[]' $FILE | awk '{print NR "\t" $0}'
+    ;;
+  *)
+    jq -r ".testCases | .$1 | .$2?" $FILE
+    ;;
+  esac
+}
+
+# INIT COMMANDS AND CHECKS
 for arg in "$@"; do
   case $arg in
-  run | test)
+  run | test | describe)
     ACTION="$1"
     shift
     break
@@ -514,6 +531,7 @@ for arg in "$@"; do
   esac
 done
 
+# Check for dependency programs
 command -v curl >/dev/null 2>&1 || {
   echo >&2 "This program requires 'curl' to run. Please install 'curl'"
   exit 1
@@ -537,28 +555,34 @@ if [ ! -f "$FILE" ]; then
     echo "Please provide an existing file."
     exit 1
   fi
-  echo $FILE
 fi
 
- jq empty $FILE
+jq empty $FILE
 
 if [ $? -ne 0 ]; then
   exit 1
 fi
 
-URL=$(jq -r '.url' $FILE)
-COMMON_HEADER=$(cat $FILE | jq -r -c ". | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
-if [[ -z $(jq -r '.testCases | select(. != null and . != {})' $FILE) ]];then
-  echo "'testCases' is a required field in base object of a test file and must have atleast one test case."
+# Check if url is present
+URL=$(jq -r '.url | select( . != null)' $FILE)
+if [[ -z $URL ]]; then
+  echo "'url' is a required field in base object of a test file and must be a string."
   exit 1
 fi
 
+COMMON_HEADER=$(cat $FILE | jq -r -c ". | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
+# Check if test cases is present
+if [[ -z $(jq -r '.testCases | select(. != null and . != {})' $FILE) ]]; then
+  echo "'testCases' is a required field in base object of a test file and must have atleast one test case."
+  exit 1
+fi
 
 case $ACTION in
 run)
   run $@
   ;;
 test) test $@ ;;
+describe) describe $@ ;;
 *)
   usage
   ;;
