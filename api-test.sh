@@ -605,3 +605,15 @@ describe) describe $@ ;;
   usage
   ;;
 esac
+
+env_jq() {
+
+  jq --argjson ENV_VAR '{ "URL_ENV" : "localhost:3000" }' '
+  (..|select(type  == "string")) |= if . then 
+    if [. as $FILE | { "V": "Hello" } as $env | $FILE | match("{{ *(\\.[a-zA-Z_]+) *}}";"g") | .captures[0].string] | length != 0 
+      then 
+        . as $FILE | { "V": "Hello" } as $env | $FILE | capture("{{ *\\.(?<env>[a-zA-Z_]+) *}}") | .env as $var | $ENV_VAR[$var]
+      else . 
+      end
+    else 0 end' test.json
+}
