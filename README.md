@@ -1,8 +1,14 @@
-# api-test
+<img src="./api-test.png" style="max-width: 100px; margin: 0 auto; display:block;">
+
+<h1 style="text-align:center;">
+api-test
+</h1>
 
 A simple bash script to test JSON API from terminal in a structured and organized way.
 
 ![CI](https://github.com/subeshb1/api-test/workflows/CI/badge.svg)
+
+Docs: [https://subeshbhandari.com/api-test](https://subeshbhandari.com/api-test)
 
 ## Setting up
 
