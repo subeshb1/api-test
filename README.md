@@ -1,10 +1,17 @@
-<img src="./api-test.png" style="max-width: 100px; margin: 0 auto; display:block;">
+<!-- <HEADER> // IGNORE IT -->
+<p align="center">
+<img src="./api-test.png" height="200px" alt="api-test log">
+ 
+</p>
 
-<h1 style="text-align:center;">
-api-test
-</h1>
+<div align="center">
+  <h1>API testing framework for the terminal</h1>
+</div>
 
-A simple bash script to test JSON API from terminal in a structured and organized way.
+<br />
+<!-- </HEADER> // NOW BEGINS THE README -->
+
+api-test is a simple bash script to test JSON API from terminal in a structured and organized way.
 
 ![CI](https://github.com/subeshb1/api-test/workflows/CI/badge.svg)
 
