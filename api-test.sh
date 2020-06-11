@@ -139,7 +139,7 @@ function usage() {
 # api methods
 call_api() {
   ROUTE=$(jq -r ".testCases.$1.path" $FILE)
-  BODY="$(jq -r ".testCases.$1.body" $FILE)"
+  BODY="$(jq -r ".testCases.$1 | select(.body != null) | .body" $FILE)"
   QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.$1 | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
   REQUEST_HEADER=$(cat $FILE | jq -r ".testCases.$1 | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
   METHOD="$(jq -r ".testCases.$1.method //\"GET\" | ascii_upcase" $FILE)"
@@ -266,7 +266,7 @@ test_factory() {
     TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.external? | select(. !=null and . != \"\")" $FILE)
     if [[ ! -z $TEST_SCENARIO ]]; then
       tput cuf 2
-      echo "${UNDERLINE}Checking condition form external program${RESET}"
+      echo "${UNDERLINE}Checking condition from external program${RESET}"
       external_script "$TEST_SCENARIO" "$TEST_CASE" "$RESPONSE_BODY" "$RESPONSE_HEADER"
       TOTAL_TEST_CASE=$((TOTAL_TEST_CASE + 1))
       echo ""
