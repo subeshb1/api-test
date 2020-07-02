@@ -138,11 +138,11 @@ function usage() {
 
 # api methods
 call_api() {
-  ROUTE=$(jq -r ".testCases.$1.path" $FILE)
-  BODY="$(jq -r ".testCases.$1 | select(.body != null) | .body" $FILE)"
-  QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.$1 | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
-  REQUEST_HEADER=$(cat $FILE | jq -r ".testCases.$1 | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
-  METHOD="$(jq -r ".testCases.$1.method //\"GET\" | ascii_upcase" $FILE)"
+  ROUTE=$(jq -r ".testCases.\"$1\".path" $FILE)
+  BODY="$(jq -r ".testCases.\"$1\" | select(.body != null) | .body" $FILE)"
+  QUERY_PARAMS=$(cat $FILE | jq -r ".testCases.\"$1\" | select(.query != null) | .query  | to_entries | map(\"\(.key)=\(.value|tostring)\") | join(\"&\") | \"?\" + . ")
+  REQUEST_HEADER=$(cat $FILE | jq -r ".testCases.\"$1\" | .header | if  . != null then . else {} end   | to_entries | map(\"\(.key): \(.value|tostring)\") | join(\"\n\") | if ( . | length) != 0 then \"-H\" + .  else \"-H \" end")
+  METHOD="$(jq -r ".testCases.\"$1\".method //\"GET\" | ascii_upcase" $FILE)"
   # curl -ivs --request $METHOD "$URL$ROUTE$QUERY_PARAMS" \
   #   --data "$BODY" \
   #   "$COMMON_HEADER" \
@@ -211,8 +211,8 @@ api_factory() {
   for TEST_CASE in $@; do
     API_ERROR=0
     echo "${BOLD}Running Case:${RESET} $TEST_CASE"
-    echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
-    echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
+    echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.\"$TEST_CASE\".description" $FILE)"
+    echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.\"$TEST_CASE\".method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.\"$TEST_CASE\".path" $FILE)"
     call_api $TEST_CASE
     display_results
     echo ""
@@ -227,9 +227,9 @@ test_factory() {
   for TEST_CASE in $@; do
     API_ERROR=0
     echo "${BOLD}Testing Case:${RESET} $TEST_CASE"
-    echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.$TEST_CASE.description" $FILE)"
-    echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.$TEST_CASE.method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.$TEST_CASE.path" $FILE)"
-    if [[ -z $(jq -r ".testCases.$TEST_CASE.expect? | select(. !=null)" $FILE) ]]; then
+    echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.\"$TEST_CASE\".description" $FILE)"
+    echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.\"$TEST_CASE\".method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.\"$TEST_CASE\".path" $FILE)"
+    if [[ -z $(jq -r ".testCases.\"$TEST_CASE\".expect? | select(. !=null)" $FILE) ]]; then
       tput cuf 2
       echo "No test cases found"
       echo ""
@@ -245,7 +245,7 @@ test_factory() {
       continue
     fi
 
-    local TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.header? | select(. !=null and . != {})" $FILE)
+    local TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.header? | select(. !=null and . != {})" $FILE)
     if [[ ! -z $TEST_SCENARIO ]]; then
       tput cuf 2
       echo "${UNDERLINE}Checking condition for header${RESET}"
@@ -254,7 +254,7 @@ test_factory() {
       echo ""
     fi
 
-    TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.body? | select(. !=null and . != {})" $FILE)
+    TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.body? | select(. !=null and . != {})" $FILE)
     if [[ ! -z $TEST_SCENARIO ]]; then
       tput cuf 2
       echo "${UNDERLINE}Checking condition for body${RESET}"
@@ -263,7 +263,7 @@ test_factory() {
       echo ""
     fi
 
-    TEST_SCENARIO=$(jq -r ".testCases.$TEST_CASE.expect.external? | select(. !=null and . != \"\")" $FILE)
+    TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.external? | select(. !=null and . != \"\")" $FILE)
     if [[ ! -z $TEST_SCENARIO ]]; then
       tput cuf 2
       echo "${UNDERLINE}Checking condition from external program${RESET}"
@@ -299,7 +299,7 @@ test_factory() {
 
 test_runner() {
   for test in ""contains eq path_eq path_contains hasKey[]""; do
-    local TEST_SCENARIO=$(jq -c -r ".testCases.$1.expect.$2.$test? | select(. !=null)" $FILE)
+    local TEST_SCENARIO=$(jq -c -r ".testCases.\"$1\".expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
     fi
