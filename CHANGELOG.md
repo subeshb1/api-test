@@ -1,7 +1,9 @@
 # Changelog
 
-## v0.3.1
+## v0.3.2
+- Fix script breaking on test cases starting with numbers Eg: `01_testcase, 02_testcase` and containing hyphen `-` Eg: `test-case`
 
+## v0.3.1
 - Fixed null body being sent when no body content was provided.
 - Fixed typo in external script test message.
 
