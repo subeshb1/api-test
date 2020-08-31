@@ -41,15 +41,16 @@ const getBook = (ctx: RouterContext<any>) => {
 
 const postBook = async (ctx: RouterContext<RouteParams>) => {
   const { request, response } = ctx;
+  response.type = 'application/json'
   if (request.hasBody) {
     const result: any = await request.body({
       contentTypes: {
         text: ["application/javascript"],
       },
-    });
-    const body: any = JSON.parse(result.value)
+    })
+    const body: {id:string} = await result.value
     const book: IBook | undefined = searchBookById(body.id)
-      if (!book) {
+    if (!book) {
       response.status = 200
       response.body = body
     } else {
