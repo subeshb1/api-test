@@ -27,6 +27,6 @@
   },
   "url": "api-test:3000",
   "header": {
-    "Content-Type": "application/javascript"
+    "Content-Type": "application/json"
   }
 }
