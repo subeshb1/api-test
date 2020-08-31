@@ -1,4 +1,4 @@
-FROM hayd/ubuntu-deno:1.0.2
+FROM hayd/ubuntu-deno:1.3.1
 
 
 WORKDIR /app
