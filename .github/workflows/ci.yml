@@ -2,7 +2,7 @@
 
 name: CI
 
-on: [push]
+on: [push, pull_request_target]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -13,12 +13,12 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
 
-    # Runs a set of commands using the runners shell
-    - name: Create Image and run mock server
-      run: cd ./test && docker-compose up  -d api-test
+      # Runs a set of commands using the runners shell
+      - name: Create Image and run mock server
+        run: cd ./test && docker-compose up  -d api-test
 
-    - name: test app
-      run: cd ./test && docker-compose run test
+      - name: test app
+        run: cd ./test && docker-compose run test
