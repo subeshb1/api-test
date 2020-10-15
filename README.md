@@ -14,6 +14,7 @@
 api-test is a simple bash script to test JSON API from terminal in a structured and organized way.
 
 ![CI](https://github.com/subeshb1/api-test/workflows/CI/badge.svg)
+![Release](https://img.shields.io/github/v/release/subeshb1/api-test)
 
 Docs: [https://subeshbhandari.com/api-test](https://subeshbhandari.com/api-test)
 
