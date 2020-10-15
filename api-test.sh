@@ -386,12 +386,18 @@ has_key() {
 
 check_eq() {
   tput cuf 6
-  local type=$(jq -r -c --argjson a "$1" -n '$a|type')
+  local type=$(jq -r -c --argjson a "$1" -n '$a|type' 2&>/dev/null)
   local check
   if [[ $type == "object" || $type == "array" ]]; then
     check=$(jq -c --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
-  else
+  elif [[ $type == "number" || $type == "boolean" || $type == "null" || $type == "string" ]]; then
     check=$(jq -c --argjson a "$1" --argjson b "$2" -n '$a == $b')
+  else
+    if [[ $1 == $2 ]]; then
+      check="true"
+    else
+      check="false"
+    fi
   fi
   if [[ $check == "true" ]]; then
     echo "${GREEN}${BOLD}Check Passed${RESET}"
