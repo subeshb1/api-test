@@ -386,7 +386,7 @@ has_key() {
 
 check_eq() {
   tput cuf 6
-  local type=$(jq -r -c --argjson a "$1" -n '$a|type' 2&>/dev/null)
+  local type=$(jq -r -c --argjson a "$1" -n '$a|type' 2>/dev/null)
   local check
   if [[ $type == "object" || $type == "array" ]]; then
     check=$(jq -c --argjson a "$1" --argjson b "$2" -n 'def post_recurse(f): def r: (f | select(. != null) | r), .; r; def post_recurse: post_recurse(.[]?); ($a | (post_recurse | arrays) |= sort) as $a | ($b | (post_recurse | arrays) |= sort) as $b | $a == $b')
