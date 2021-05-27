@@ -1,7 +1,7 @@
 <!-- <HEADER> // IGNORE IT -->
 <p align="center">
 <img src="./api-test.png" height="200px" alt="api-test log">
- 
+
 </p>
 
 <div align="center">
@@ -104,6 +104,10 @@ Example:
       },
       "header": {
         "X-per": "1"
+      },
+      "retry": {
+        "count": 1,
+        "delay": 2000
       }
     },
     "test_case_2": {
@@ -112,7 +116,8 @@ Example:
       "description": "Best GET api",
       "query": {
         "value": 1
-      }
+      },
+      "delay": 5000
     },
     "test_case_3": {
       "path": "/path_1",
@@ -131,6 +136,12 @@ Example:
 ```
 
 The test cases are present in the `testCases` object. The main url for the api is store in `url` string. If the test cases share common headers add them in root `header` key.
+
+If a test case needs a delay before it is executed add the optional `delay` key with the number of milliseconds to wait as value.
+
+To compansate for random errors or if the API endpoint needs an unknown time to be ready to successfully process the request
+a test case can provide the optional `retry` object containing the maximum number of retries as `count` and an optional
+`delay` in milliseconds before attempting the next retry.
 
 To pull the `template.json`
 
