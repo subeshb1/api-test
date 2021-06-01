@@ -170,7 +170,7 @@ call_api() {
 parse_header() {
   local RESPONSE=($(echo "$header" | tr '\r' ' ' | sed -n 1p))
   local header=$(echo "$header" | sed '1d;$d' | sed 's/: /" : "/' | sed 's/^/"/' | tr '\r' ' ' | sed 's/ $/",/' | sed '1 s/^/{/' | sed '$ s/,$/}/')
-  RESPONSE_HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\", 
+  RESPONSE_HEADER=$(echo "$header" "{ \"http_version\": \"${RESPONSE[0]}\",
            \"http_status\": \"${RESPONSE[1]}\",
            \"http_message\": \"${RESPONSE[@]:2}\",
            \"http_response\": \"${RESPONSE[@]:0}\" }" | jq -c -s add)
@@ -209,12 +209,33 @@ display_results() {
 
 api_factory() {
   for TEST_CASE in $@; do
-    API_ERROR=0
+    INIT_DELAY_MS="$(jq -r ".testCases.\"$TEST_CASE\".delay | try tonumber catch 0" $FILE)"
+    INIT_DELAY=$(echo "scale=3; $INIT_DELAY_MS/1000" | bc)
+    RETRY_COUNT="$(jq -r ".testCases.\"$TEST_CASE\".retry.count | try tonumber catch 0" $FILE)"
+    RETRY_DELAY_MS="$(jq -r ".testCases.\"$TEST_CASE\".retry.delay | try tonumber catch 0" $FILE)"
+    RETRY_DELAY=$(echo "scale=3; $RETRY_DELAY_MS/1000" | bc)
     echo "${BOLD}Running Case:${RESET} $TEST_CASE"
     echo_v "${BOLD}Description: ${RESET}$(jq -r ".testCases.\"$TEST_CASE\".description" $FILE)"
     echo_v "${BOLD}Action: ${RESET}$(jq -r ".testCases.\"$TEST_CASE\".method //\"GET\" | ascii_upcase" $FILE) $(jq -r ".testCases.\"$TEST_CASE\".path" $FILE)"
-    call_api $TEST_CASE
-    display_results
+    API_ERROR=1
+    if [[ $INIT_DELAY_MS -gt 0 ]]; then
+      echo "  ${BOLD}Delaying '$TEST_CASE' for ${INIT_DELAY_MS}ms${RESET}"
+      sleep $INIT_DELAY
+    fi
+    try=0
+    while [[ $API_ERROR -ne 0 && $try -le $RETRY_COUNT ]]; do
+      if [[ $try -ne 0 ]]; then
+        echo "  ${BOLD}Retrying Case '$TEST_CASE': ${try}/${RETRY_COUNT}${RESET}"
+        if [[ RETRY_DELAY_MS -gt 0 ]]; then
+          echo "  ${BOLD}Retry Delay: ${RETRY_DELAY_MS}ms${RESET}"
+          sleep $RETRY_DELAY
+        fi
+      fi
+      try=$((try + 1))
+      API_ERROR=0
+      call_api $TEST_CASE
+      display_results
+    done
     echo ""
     echo ""
   done
@@ -236,43 +257,69 @@ test_factory() {
       echo ""
       continue
     fi
-    call_api $TEST_CASE
-    if [[ $API_ERROR == 1 ]]; then
-      ANY_API_ERROR=1
-      tput cuf 2
-      echo -e "${BOLD}${RED}Error running tests after failed api request for '$TEST_CASE' ${RESET}"
-      echo -e "\n"
-      continue
+    INIT_DELAY_MS="$(jq -r ".testCases.\"$TEST_CASE\".delay | try tonumber catch 0" $FILE)"
+    INIT_DELAY=$(echo "scale=3; $INIT_DELAY_MS/1000" | bc)
+    RETRY_COUNT="$(jq -r ".testCases.\"$TEST_CASE\".retry.count | try tonumber catch 0" $FILE)"
+    RETRY_DELAY_MS="$(jq -r ".testCases.\"$TEST_CASE\".retry.delay | try tonumber catch 0" $FILE)"
+    RETRY_DELAY=$(echo "scale=3; $RETRY_DELAY_MS/1000" | bc)
+    if [[ $INIT_DELAY_MS -gt 0 ]]; then
+      echo "  ${BOLD}Delaying '$TEST_CASE' for ${INIT_DELAY_MS}ms${RESET}"
+      sleep $INIT_DELAY
     fi
+    try=0
+    SAVED_TOTAL_TEST_CASE=-1
+    SAVED_TOTAL_FAIL_CASE=-1
+    while [[ $SAVED_TOTAL_FAIL_CASE -lt $TOTAL_FAIL_CASE && $try -le $RETRY_COUNT ]]; do
+      if [[ $try -eq 0 ]] ; then
+        SAVED_TOTAL_TEST_CASE=$TOTAL_TEST_CASE
+        SAVED_TOTAL_FAIL_CASE=$TOTAL_FAIL_CASE
+      else
+        TOTAL_TEST_CASE=$SAVED_TOTAL_TEST_CASE
+        TOTAL_FAIL_CASE=$SAVED_TOTAL_FAIL_CASE
+        echo "${BOLD}Retrying Case '$TEST_CASE': ${try}/${RETRY_COUNT}${RESET}"
+        if [[ RETRY_DELAY_MS -gt 0 ]]; then
+          echo "${BOLD}Retry Delay: ${RETRY_DELAY_MS}ms${RESET}"
+          sleep $RETRY_DELAY
+        fi
+      fi
+      call_api $TEST_CASE
+      try=$((try + 1))
+      if [[ $API_ERROR == 1 ]]; then
+        ANY_API_ERROR=1
+        tput cuf 2
+        echo -e "${BOLD}${RED}Error running tests after failed api request for '$TEST_CASE' ${RESET}"
+        echo -e "\n"
+        continue
+      fi
 
-    local TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.header? | select(. !=null and . != {})" $FILE)
-    if [[ ! -z $TEST_SCENARIO ]]; then
-      tput cuf 2
-      echo "${UNDERLINE}Checking condition for header${RESET}"
-      test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
-      echo ""
-      echo ""
-    fi
+      local TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.header? | select(. !=null and . != {})" $FILE)
+      if [[ ! -z $TEST_SCENARIO ]]; then
+        tput cuf 2
+        echo "${UNDERLINE}Checking condition for header${RESET}"
+        test_runner $TEST_CASE "header" "$RESPONSE_HEADER"
+        echo ""
+        echo ""
+      fi
 
-    TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.body? | select(. !=null and . != {})" $FILE)
-    if [[ ! -z $TEST_SCENARIO ]]; then
-      tput cuf 2
-      echo "${UNDERLINE}Checking condition for body${RESET}"
-      test_runner $TEST_CASE "body" "$RESPONSE_BODY"
-      echo ""
-      echo ""
-    fi
+      TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.body? | select(. !=null and . != {})" $FILE)
+      if [[ ! -z $TEST_SCENARIO ]]; then
+        tput cuf 2
+        echo "${UNDERLINE}Checking condition for body${RESET}"
+        test_runner $TEST_CASE "body" "$RESPONSE_BODY"
+        echo ""
+        echo ""
+      fi
 
-    TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.external? | select(. !=null and . != \"\")" $FILE)
-    if [[ ! -z $TEST_SCENARIO ]]; then
-      tput cuf 2
-      echo "${UNDERLINE}Checking condition from external program${RESET}"
-      external_script "$TEST_SCENARIO" "$TEST_CASE" "$RESPONSE_BODY" "$RESPONSE_HEADER"
-      TOTAL_TEST_CASE=$((TOTAL_TEST_CASE + 1))
-      echo ""
-      echo ""
-    fi
-
+      TEST_SCENARIO=$(jq -r ".testCases.\"$TEST_CASE\".expect.external? | select(. !=null and . != \"\")" $FILE)
+      if [[ ! -z $TEST_SCENARIO ]]; then
+        tput cuf 2
+        echo "${UNDERLINE}Checking condition from external program${RESET}"
+        external_script "$TEST_SCENARIO" "$TEST_CASE" "$RESPONSE_BODY" "$RESPONSE_HEADER"
+        TOTAL_TEST_CASE=$((TOTAL_TEST_CASE + 1))
+        echo ""
+        echo ""
+      fi
+    done
   done
   echo -e "${BOLD}Total tests:\t$TOTAL_TEST_CASE"
   if [[ $(($TOTAL_TEST_CASE - $TOTAL_FAIL_CASE)) != 0 ]]; then
