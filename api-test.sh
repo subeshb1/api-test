@@ -298,7 +298,7 @@ test_factory() {
 }
 
 test_runner() {
-  for test in ""contains eq path_eq path_contains hasKey[]""; do
+  for test in ""contains eq path_eq path_contains hasKeys[]""; do
     local TEST_SCENARIO=$(jq -c -r ".testCases.\"$1\".expect.$2.$test? | select(. !=null)" $FILE)
     if [[ -z $TEST_SCENARIO ]]; then
       continue
